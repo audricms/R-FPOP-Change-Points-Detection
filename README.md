@@ -2,6 +2,22 @@
 
 This repository contains a Machine Learning for Time Series project as part of the MVA Master. The project focuses on the R-FPOP algorithm, demonstrating how bounded loss functions can accurately detect structural changes in time series data while remaining robust to extreme outliers.
 
+## For Developers
+
+## Dependencies
+
+To isolate the project dependencies, it is recommended to use a virtual environment.
+- To create the virtual environment: `python -m venv venv`
+- To activate it: `source venv/bin/activate`
+- To install the required dependencies: `pip install -r requirements.txt`
+
+### Pre-commit
+
+Pre-commit automatically formats your code before each commit, ensuring that all developers follow the same formatting rules. To install it:
+- Install Pre-commit: `pip install pre-commit`
+- Set up Pre-commit in your project: `pre-commit install`
+Once installed, Pre-commit will automatically run the defined checks and formatting before each commit.
+
 ### Reference Paper
 Fearnhead, P., & Rigaill, G. (2019). Changepoint Detection in the Presence of Outliers. Journal of the American Statistical Association, 114(525), 169–183.
 
