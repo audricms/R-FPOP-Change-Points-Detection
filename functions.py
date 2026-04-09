@@ -944,3 +944,31 @@ def plot_most_recent_changepoint(online_result, true_changepoints=None, title=""
 
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    # run all the functions with dummy data for pre-commit sanity check to pass
+    _, _ = generate_scenarios()
+    _ = compute_penalty_beta(y=np.random.randn(100), loss="biweight")
+    _ = compute_loss_bound_K(y=np.random.randn(100), loss="huber")
+    _ = cross_validate_rfpop(y=np.random.randn(100), loss="biweight", verbose=False)
+    _ = plot_sensitivity_tobeta(
+        df=pd.DataFrame({"value": np.random.randn(100)}), name="value", verbose=False
+    )
+    _ = plot_segments(
+        df=pd.DataFrame({"value": np.random.randn(100)}),
+        name="value",
+        scaling_huber=1,
+        scaling_biweight=1,
+        scaling_l2=1,
+    )
+    _ = online_most_recent_changepoint(
+        y=np.random.randn(200), loss="huber", step=20, min_obs=50
+    )
+    _ = plot_most_recent_changepoint(
+        online_result=_, true_changepoints=[50, 100, 150], title="Dummy Data"
+    )
+    _ = extract_changepoints_backtrack(cp_tau=[0, 0, 1, 1, 2, 2, 3])
+    _ = get_segments_from_cp_tau(
+        cp_tau=[0, 0, 1, 1, 2, 2, 3], y=np.array([10, 10, 20, 20, 30, 30, 40])
+    )
