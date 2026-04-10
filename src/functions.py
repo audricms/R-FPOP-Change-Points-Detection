@@ -1,5 +1,5 @@
 import logging
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,85 +9,13 @@ from scipy.stats import norm
 from statsmodels import robust
 from tqdm import tqdm
 
-from src.utils.rfpop_algorithms import QuadPiece, rfpop_algorithm
-from src.utils.variables import INF
-
-# QuadPiece and INF are defined in src.utils.rfpop_algorithms
-
-
-def gamma_builder_L2(y: float, tau_for_new: int) -> List[QuadPiece]:
-    """
-    gamma(y,theta) = (y - theta)^2 = theta^2 - 2*y*theta + y^2
-    Single quadratic piece on (-INF, INF].
-    """
-    A = 1.0
-    B = -2.0 * y
-    C = y * y
-    return [(-INF, INF, A, B, C, tau_for_new)]
-
-
-def gamma_builder_biweight(y: float, K: float, tau_for_new: int) -> List[QuadPiece]:
-    """:
-      gamma(y,theta) = (y-theta)^2   if |y-theta| <= K
-                      = K^2         otherwise
-    Can be defined as 3 different quadratic functions over 3 segments :
-      (-INF, y-K]       : constant K^2
-      (y-K, y+K]        : quadratic (y-theta)^2
-      (y+K, INF)        : constant K^2
-    """
-    A_q = 1.0
-    B_q = -2.0 * y
-    C_q = y * y
-    constC = float(K * K)
-    return [
-        (-INF, y - K, 0.0, 0.0, constC, tau_for_new),
-        (y - K, y + K, A_q, B_q, C_q, tau_for_new),
-        (y + K, INF, 0.0, 0.0, constC, tau_for_new),
-    ]
-
-
-def gamma_builder_huber(y: float, K: float, tau_for_new: int) -> List[QuadPiece]:
-    """
-    Huber loss with threshold K:
-      gamma(y,theta) = (y-theta)^2                     if |y-theta| <= K
-                      = 2*K*|y-theta| - K^2           if |y-theta| > K
-
-    Can be defined as 3 quadratic functions over 3 segments
-    (-INF, y-K] :  2*K*(y-theta) - K^2 = -2K*theta + (2K*y - K^2)
-    (y-K, y+K]: (y-theta)^2 = theta^2 - 2y theta + y^2
-    (y+K, INF): 2*K*(theta-y) - K^2 = 2K*theta + (-2K*y - K^2)
-    """
-    # central quadratic
-    A_q = 1.0
-    B_q = -2.0 * y
-    C_q = y * y
-    # left linear: B_left * theta + C_left  where B_left = -2K, C_left = 2K*y - K^2
-    B_left = -2.0 * K
-    C_left = 2.0 * K * y - K * K
-    # right linear: B_right * theta + C_right where B_right = 2K, C_right = -2K*y - K^2
-    B_right = 2.0 * K
-    C_right = -2.0 * K * y - K * K
-    return [
-        (-INF, y - K, 0.0, B_left, C_left, tau_for_new),  # linear = A=0
-        (y - K, y + K, A_q, B_q, C_q, tau_for_new),  # quadratic
-        (y + K, INF, 0.0, B_right, C_right, tau_for_new),  # linear = A=0
-    ]
-
-
-def gamma_builder_L1(y: float, tau_for_new: int) -> List[QuadPiece]:
-    """
-    L1 loss: gamma(y,theta) = |y - theta|
-    Piecewise-linear
-      (-INF, y) :  y - theta = (-1)*theta + y
-      (y, INF): theta - y = (+1)*theta + (-y)
-
-    """
-    # left piece: (-INF, y] -> -theta + y  => A=0, B=-1, C=y
-    # right piece: (y, INF] -> theta - y  => A=0, B=1,  C=-y
-    return [
-        (-INF, y, 0.0, -1.0, float(y), tau_for_new),
-        (y, INF, 0.0, 1.0, float(-y), tau_for_new),
-    ]
+from src.utils.gamma_builders import (
+    gamma_builder_biweight,
+    gamma_builder_huber,
+    gamma_builder_L1,
+    gamma_builder_L2,
+)
+from src.utils.rfpop_algorithms import rfpop_algorithm
 
 
 def generate_scenarios():
