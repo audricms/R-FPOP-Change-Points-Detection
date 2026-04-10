@@ -119,3 +119,7 @@ def generate_scenarios() -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     }
 
     return noisy, truth
+
+
+if __name__ == "__main__":
+    _, _ = generate_scenarios()

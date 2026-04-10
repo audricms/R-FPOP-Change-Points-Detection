@@ -200,3 +200,13 @@ def cross_validate_rfpop(
         "loss": loss,
         "criterion": criterion,
     }
+
+
+if __name__ == "__main__":
+    _ = cross_validate_rfpop(
+        y=np.random.randn(100),
+        loss="biweight",
+        beta_range=np.array([0.5, 1, 2]),
+        K_range=np.array([0.5, 1, 2]),
+        verbose=False,
+    )

@@ -232,3 +232,28 @@ def plot_most_recent_changepoint(
 
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    online_result = {
+        "t_values": np.arange(50, 200, 10),
+        "most_recent_cp": [0, 0, 0, 50, 50, 100, 100, 150, 150],
+        "params": {"loss": "huber"},
+    }
+    plot_most_recent_changepoint(
+        online_result=online_result,
+        true_changepoints=[50, 100, 150],
+        title="Dummy Data",
+    )
+    plot_segments(
+        df=None,
+        name="value",
+        scaling_huber=1,
+        scaling_biweight=1,
+        scaling_l2=1,
+    )
+    plot_sensitivity_tobeta(
+        df=None,
+        name="value",
+        scaling_list=[1, 5, 10],
+    )
