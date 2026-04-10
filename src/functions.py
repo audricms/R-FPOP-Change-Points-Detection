@@ -1,6 +1,5 @@
 import logging
-import math
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,214 +9,10 @@ from scipy.stats import norm
 from statsmodels import robust
 from tqdm import tqdm
 
-QuadPiece = Tuple[float, float, float, float, float, int]
-# quadpiece is a tuple containing:
-# first float a = left bound of the interval
-# second flat b: right bound of the interval
-# 3 other floats A,B,C = coefficients of the quadratic polynom on interval [a,b]: AX^2+BX=c
-# last int tau = index of last changepoint
+from src.utils.rfpop_algorithms import QuadPiece, rfpop_algorithm
+from src.utils.variables import INF
 
-
-# algorithm 3 from pseudocode
-def rfpop_algorithm3_min_over_theta(Qt_pieces: List[QuadPiece]):
-    best_val = float("inf")
-    best_tau = 0
-    for a, b, A, B, C, tau in Qt_pieces:
-        # computing min of Q_t(theta) over segment (a,b]
-        if abs(A) < 1e-16:
-            # if the coefficient associated with x^2 of the quadratic function is =0 then the function is linear (B!=0) or constant (B=0)
-            # hence in this case min value of Q_t(theta) is on the boundaries of the segment
-            left = a + 1e-12  # because segment does not contain a
-            right = b
-            vleft = A * left * left + B * left + C
-            vright = A * right * right + B * right + C
-            theta_star = left if vleft <= vright else right
-        else:  # if A!=0 then Q_t(theta) =A theta^2 + B theta + C on segment (a,b]
-            # so minimizer is -B/2A   (each quadratic is assumed convex, not concave so not a maximizer)
-            theta_star = -B / (2.0 * A)
-            # we need to ensure the minimizer is in (a,b]
-            if theta_star <= a:
-                theta_star = a + 1e-12
-            elif theta_star > b:
-                theta_star = b
-        val = A * theta_star * theta_star + B * theta_star + C
-        if val < best_val:
-            best_val = val
-            best_tau = tau
-    return float(best_val), int(best_tau)
-
-
-# algorithm 2 from appendix D
-def rfpop_algorithm2_add_Qstar_and_gamma(
-    Qstar_pieces: List[QuadPiece],
-    # Q_star est représenté sous forme [ (a1,b1,A1,B1,C1,tau1), (a2,b2,A2,B2,C2,tau2), ..., ]
-    gamma_pieces: List[QuadPiece],
-):
-
-    out: List[QuadPiece] = []
-    i = 0
-    j = 0
-    while i < len(Qstar_pieces) and j < len(gamma_pieces):
-        pa, pb, pA, pB, pC, p_tau = Qstar_pieces[i]
-        ga, gb, gA, gB, gC, _ = gamma_pieces[j]
-
-        # new interval
-        a = max(pa, ga)
-        b = min(pb, gb)
-
-        # sum of Q_star and gamma on the new interval
-        newA = pA + gA
-        newB = pB + gB
-        newC = pC + gC
-        # tau comes from Q* (p_tau)
-        out.append((a, b, newA, newB, newC, p_tau))
-        # avancer indices selon bornes
-        if abs(b - pb) < 1e-12:
-            i += 1
-        if abs(b - gb) < 1e-12:
-            j += 1
-        # to avoid infinite loop
-        if (
-            (i < len(Qstar_pieces) and j < len(gamma_pieces))
-            and a >= b - 1e-14
-            and abs(b - Qstar_pieces[i][1]) > 1e-12
-            and abs(b - gamma_pieces[j][1]) > 1e-12
-        ):
-            break
-    # to do as they say on page 12 and merge identical neighbouring intervals
-    if not out:
-        return []
-    merged: List[QuadPiece] = [out[0]]
-    for pc in out[1:]:
-        a, b, A, B, C, tau = pc
-        ma, mb, mA, mB, mC, mtau = merged[-1]
-        if (
-            abs(A - mA) < 1e-14
-            and abs(B - mB) < 1e-14
-            and abs(C - mC) < 1e-9
-            and tau == mtau
-            and abs(a - mb) < 1e-9
-        ):
-            merged[-1] = (ma, b, mA, mB, mC, mtau)
-        else:
-            merged.append(pc)
-    return merged
-
-
-# algorithm 4
-
-
-def rfpop_algorithm4_prune_compare_to_constant(
-    Qt_pieces: List[QuadPiece],
-    Qt_val: float,  # Qt_val + beta = the constant C in appendix
-    beta: float,
-    t_index_for_new: int,
-):
-
-    thr = Qt_val + beta
-    out: List[QuadPiece] = []
-
-    # goes through the Nt intervals of Qt
-    for a, b, A, B, C, tau in Qt_pieces:
-        # finds the roots of Q_t(x) - C ie the roots of A x^2 + B x + (C - thr) = 0 on [a,b]
-        # BEWARE: source of confuction: thr is the equivalent of the constant C in the pseudocode of the paper
-        # C is the last coefficient of the quadratic function, not the constant C defined in the pseudocode
-        roots: List[float] = []
-        if abs(A) < 1e-16:
-            # if the quadratic function is linear or constant: B x + (C - thr) = 0
-            if abs(B) > 1e-16:
-                x = -(C - thr) / B
-                # we need to ensure root x is in interval [a,b] otherwise we don't care about it
-                if x + 1e-12 >= a and x - 1e-12 <= b:
-                    x_clamped = max(
-                        min(x, b), a
-                    )  # to ensure the root is indeed within the interval and have no problems of numerical errors later: we need to sort the roots it could do weird things later if we don't do that
-                    roots.append(x_clamped)
-        else:
-            # if the function is indeed quadratic we compute delta and roots
-            D = B * B - 4.0 * A * (C - thr)
-            if D >= -1e-14:
-                D = max(D, 0.0)
-                sqrtD = math.sqrt(D)
-                x1 = (-B - sqrtD) / (2.0 * A)
-                x2 = (-B + sqrtD) / (2.0 * A)
-                for x in (x1, x2):
-                    if x + 1e-12 >= a and x - 1e-12 <= b:
-                        x_clamped = max(min(x, b), a)
-                        # avoid duplicates if delta D = 0 we get 2 times the same root
-                        if not any(abs(x_clamped - r) < 1e-9 for r in roots):
-                            roots.append(x_clamped)
-        roots.sort()
-        # create vector [a, r1, r2,  b]
-        breaks = [a] + roots + [b]
-        for k in range(len(breaks) - 1):
-            lo = breaks[k]
-            hi = breaks[k + 1]
-            mid = (lo + hi) / 2.0
-            # here we evaluate the polynom A*mid*mid + B*mid + C - thr on each subsegment [a,root_1], [root_1,root_2],[root_2,b]
-            # on each of these subsegment this polynom has the same sign as each bound of a subsegment is a root
-            # so we can pick an arbitrary value like the middle to see the sign of the polynom on this subsegment
-            val_mid = A * mid * mid + B * mid + C - thr
-
-            # if polynom is negative then Q_t(theta)<constant so we keep Q_t(theta) = A*theta^2 + B*theta + C
-            if val_mid <= 1e-12:
-                # keep Q_t on this subsegment
-                out.append((lo, hi, A, B, C, tau))
-            else:
-                # keep constant thr in this subsegment and set a changepoint at t_index_for_new
-                out.append((lo, hi, 0.0, 0.0, thr, t_index_for_new))
-    # fusionner adjacences égales
-    if not out:
-        return []
-    merged: List[QuadPiece] = [out[0]]
-    for pc in out[1:]:
-        a, b, A, B, C, tau = pc
-        ma, mb, mA, mB, mC, mtau = merged[-1]
-        if (
-            abs(A - mA) < 1e-14
-            and abs(B - mB) < 1e-14
-            and abs(C - mC) < 1e-9
-            and tau == mtau
-            and abs(a - mb) < 1e-9
-        ):
-            merged[-1] = (ma, b, mA, mB, mC, mtau)
-        else:
-            merged.append(pc)
-    return merged
-
-
-# algorithm 1
-def rfpop_algorithm1_main(y: List[float], gamma_builder, beta: float):
-
-    y_arr = np.asarray(y, dtype=float)
-    n = len(y_arr)
-
-    lo = (
-        float(np.min(y_arr)) - 1.0
-    )  # we add -1 and +1 to ensure there is no numeric problem with python approximations for foats
-    hi = float(np.max(y_arr)) + 1.0
-    Qstar = [(lo, hi, 0.0, 0.0, 0.0, 0)]  # Q*_1
-    cp_tau = [0] * n
-    Qt_vals = [0.0] * n
-    for t_idx in range(n):
-        # Sub-routine 2 : Qt = Q*_t + gamma(y_t)
-        gamma_pcs = gamma_builder(y_t=float(y_arr[t_idx]), t=t_idx)
-        Qt_pcs = rfpop_algorithm2_add_Qstar_and_gamma(
-            Qstar_pieces=Qstar, gamma_pieces=gamma_pcs
-        )
-        # Sub-routine 3 : min over theta Qt
-        Qt_val, tau_t = rfpop_algorithm3_min_over_theta(Qt_pieces=Qt_pcs)
-        cp_tau[t_idx] = tau_t
-        Qt_vals[t_idx] = Qt_val
-        # Sub-routine 4 : compute Q*_{t+1}
-        Qstar = rfpop_algorithm4_prune_compare_to_constant(
-            Qt_pieces=Qt_pcs, Qt_val=Qt_val, beta=beta, t_index_for_new=t_idx
-        )
-    return cp_tau, Qt_vals, Qstar
-
-
-# QuadPiece already defined at top of file
-INF = 1e18  # borne pratique pour "infty"
+# QuadPiece and INF are defined in src.utils.rfpop_algorithms
 
 
 def gamma_builder_L2(y: float, tau_for_new: int) -> List[QuadPiece]:
@@ -545,7 +340,7 @@ def cross_validate_rfpop(
                     def gamma_builder(y_t, t):
                         return gamma_builder_L1(y=y_t, tau_for_new=t)
 
-                cp_tau, Qt_vals, _ = rfpop_algorithm1_main(
+                cp_tau, Qt_vals, _ = rfpop_algorithm(
                     y=y_list, gamma_builder=gamma_builder, beta=beta
                 )
 
@@ -700,7 +495,7 @@ def plot_sensitivity_tobeta(
 
         for scaling in list_scaling:
             if loss == "huber":
-                cp_tau, _, _ = rfpop_algorithm1_main(
+                cp_tau, _, _ = rfpop_algorithm(
                     y=y,
                     gamma_builder=(
                         lambda y_t, t: gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
@@ -708,7 +503,7 @@ def plot_sensitivity_tobeta(
                     beta=scaling,
                 )
             elif loss == "biweight":
-                cp_tau, _, _ = rfpop_algorithm1_main(
+                cp_tau, _, _ = rfpop_algorithm(
                     y=y,
                     gamma_builder=(
                         lambda y_t, t: gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
@@ -716,7 +511,7 @@ def plot_sensitivity_tobeta(
                     beta=scaling,
                 )
             elif loss == "l2":
-                cp_tau, _, _ = rfpop_algorithm1_main(
+                cp_tau, _, _ = rfpop_algorithm(
                     y=y,
                     gamma_builder=(
                         lambda y_t, t: gamma_builder_L2(y=y_t, tau_for_new=t)
@@ -752,7 +547,7 @@ def plot_segments(df, name, scaling_huber, scaling_biweight, scaling_l2):
         K = compute_loss_bound_K(y=y, loss=loss)
 
         if loss == "huber":
-            cp_tau, _, _ = rfpop_algorithm1_main(
+            cp_tau, _, _ = rfpop_algorithm(
                 y=y,
                 gamma_builder=(
                     lambda y_t, t: gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
@@ -760,7 +555,7 @@ def plot_segments(df, name, scaling_huber, scaling_biweight, scaling_l2):
                 beta=beta * scaling_huber,
             )
         elif loss == "biweight":
-            cp_tau, _, _ = rfpop_algorithm1_main(
+            cp_tau, _, _ = rfpop_algorithm(
                 y=y,
                 gamma_builder=(
                     lambda y_t, t: gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
@@ -768,7 +563,7 @@ def plot_segments(df, name, scaling_huber, scaling_biweight, scaling_l2):
                 beta=beta * scaling_biweight,
             )
         elif loss == "l2":
-            cp_tau, _, _ = rfpop_algorithm1_main(
+            cp_tau, _, _ = rfpop_algorithm(
                 y=y,
                 gamma_builder=(lambda y_t, t: gamma_builder_L2(y=y_t, tau_for_new=t)),
                 beta=beta * scaling_l2,
@@ -878,7 +673,7 @@ def online_most_recent_changepoint(
     for t in tqdm(range(min_obs, n + 1, step), desc=f"Online analysis ({loss})"):
         y_partial = y_list[:t]
 
-        cp_tau, Qt_vals, _ = rfpop_algorithm1_main(
+        cp_tau, Qt_vals, _ = rfpop_algorithm(
             y=y_partial, gamma_builder=gamma_builder, beta=beta
         )
 
