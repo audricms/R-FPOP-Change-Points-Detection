@@ -10,47 +10,17 @@ from src.utils.gamma_builders import (
 )
 from src.utils.rfpop_algorithms import rfpop_algorithm
 from src.utils.simulations import generate_scenarios
-from src.utils.utils import compute_loss_bound_K, compute_penalty_beta
+from src.utils.utils import (
+    compute_loss_bound_K,
+    compute_penalty_beta,
+    extract_changepoints_backtrack,
+    get_segments_from_cp_tau,
+)
 from src.utils.vizualization import (
     plot_most_recent_changepoint,
     plot_segments,
     plot_sensitivity_tobeta,
 )
-
-
-def extract_changepoints_backtrack(cp_tau):
-    """Extrait les changepoints par backtracking."""
-    n = len(cp_tau)
-    changepoints = []
-    t = n - 1
-
-    while t > 0:
-        tau = cp_tau[t]
-        if tau > 0:
-            changepoints.append(tau)
-        t = tau
-
-    changepoints.reverse()
-    return changepoints
-
-
-def get_segments_from_cp_tau(cp_tau, y):
-    """Extrait les segments à partir de cp_tau."""
-    n = len(cp_tau)
-    segments = []
-    t = n - 1
-
-    while t > 0:
-        t_prev = int(cp_tau[t])
-        if isinstance(y, pd.Series):
-            seg_mean = y.iloc[t_prev : t + 1].mean()
-        else:
-            seg_mean = np.mean(y[t_prev : t + 1])
-        segments.append((t_prev, t, seg_mean))
-        t = t_prev
-
-    segments.reverse()
-    return segments
 
 
 def online_most_recent_changepoint(

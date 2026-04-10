@@ -163,3 +163,66 @@ def compute_loss_bound_K(y, loss: Literal["huber", "biweight"]):
         return 3 * mad
     elif loss == "huber":
         return 1.345 * mad
+
+
+def extract_changepoints_backtrack(cp_tau):
+    """Extract changepoints from a backtracking array `cp_tau`.
+
+    Parameters
+    ----------
+    cp_tau : Sequence[int]
+        Backpointer array where cp_tau[t] is the index of the previous
+        changepoint for position t (0 denotes no previous changepoint).
+
+    Returns
+    -------
+    List[int]
+        Sorted list of changepoint indices (excluding 0), in increasing order.
+    """
+
+    n = len(cp_tau)
+    changepoints = []
+    t = n - 1
+
+    while t > 0:
+        tau = cp_tau[t]
+        if tau > 0:
+            changepoints.append(tau)
+        t = tau
+
+    changepoints.reverse()
+    return changepoints
+
+
+def get_segments_from_cp_tau(cp_tau, y):
+    """Return a list of segments (start, end, mean) from cp_tau and data y.
+
+    Parameters
+    ----------
+    cp_tau : Sequence[int]
+        Backpointer array as produced by RFPOP (length n).
+    y : Sequence[float] or pandas.Series
+        Original signal values used to compute segment means.
+
+    Returns
+    -------
+    List[Tuple[int, int, float]]
+        Each tuple is (start_index, end_index, segment_mean) and segments are
+        returned in chronological order.
+    """
+
+    n = len(cp_tau)
+    segments = []
+    t = n - 1
+
+    while t > 0:
+        t_prev = int(cp_tau[t])
+        if isinstance(y, pd.Series):
+            seg_mean = y.iloc[t_prev : t + 1].mean()
+        else:
+            seg_mean = np.mean(y[t_prev : t + 1])
+        segments.append((t_prev, t, seg_mean))
+        t = t_prev
+
+    segments.reverse()
+    return segments
