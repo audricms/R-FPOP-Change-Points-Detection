@@ -288,7 +288,3 @@ def plot_sensitivity_tobeta(
 
     plt.tight_layout()
     return fig
-
-
-if __name__ == "main":
-    plot_sensitivity_tobeta(df=None, name=None, loss=None)
