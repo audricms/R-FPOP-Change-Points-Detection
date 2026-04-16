@@ -103,7 +103,3 @@ def plot_segments(df, name, loss, scaling=1.0):
 
     plt.tight_layout()
     return fig
-
-
-if __name__ == "main":
-    plot_segments(df=None, name=None, loss=None)
