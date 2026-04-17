@@ -1,6 +1,9 @@
 import os
+from io import StringIO
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import pandas as pd
+import requests
 import streamlit as st
 
 # Imports basés sur l'architecture du dossier src/
@@ -56,6 +59,32 @@ st.markdown("---")  # Ligne horizontale pour séparer l'introduction de l'outil
 # --- SECTION CHARGEMENT DES DONNÉES ---
 
 DATA_DIR = "data"
+PUBLIC_DATA_URL = os.getenv(
+    "TOY_DATA_BASE_URL", "https://minio.lab.sspcloud.fr/asicard/MPPDS - Projet"
+)
+
+
+def encode_url_path(url: str) -> str:
+    """Return URL with an encoded path while preserving scheme/host/query."""
+    parts = urlsplit(url)
+    encoded_path = quote(parts.path, safe="/")
+    return urlunsplit(
+        (parts.scheme, parts.netloc, encoded_path, parts.query, parts.fragment)
+    )
+
+
+def build_public_toy_csv_url(base_url: str, filename: str) -> str:
+    """Build a public URL for a CSV file stored in MinIO/S3."""
+    normalized_base = encode_url_path(base_url.rstrip("/"))
+    return f"{normalized_base}/{quote(filename)}"
+
+
+def read_csv_from_public_url(url: str) -> pd.DataFrame:
+    """Read CSV content from an HTTP(S) URL using requests."""
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    return pd.read_csv(StringIO(response.text))
+
 
 internal_files = []
 if os.path.exists(DATA_DIR):
@@ -64,7 +93,7 @@ if os.path.exists(DATA_DIR):
 # MODIFICATION : Remplacement de st.sidebar.radio par st.radio
 data_source = st.radio(
     "Source of data",
-    ["Upload a time series", "Use a time series from the application"],
+    ["Upload a time series", "Use a time series from the application (toy examples)"],
     horizontal=True,  # Met les options sur une seule ligne
 )
 
@@ -77,14 +106,36 @@ if data_source == "Upload a time series":
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
 else:
-    if not internal_files:
-        st.warning(f"No CSV file found in `{DATA_DIR}/`.")
+    default_toy_files = [
+        "data example 1.csv",
+        "data example 2.csv",
+        "data example 3.csv",
+        "data example 4.csv",
+    ]
+    toy_files = internal_files if internal_files else default_toy_files
+
+    if not toy_files:
+        st.warning("No toy CSV file is configured.")
     else:
-        selected_filename = st.selectbox(
-            "Choose a dataset from the application", internal_files
+        selected_filename = st.selectbox("Choose a toy dataset", toy_files)
+        public_csv_url = build_public_toy_csv_url(
+            base_url=PUBLIC_DATA_URL, filename=selected_filename
         )
-        file_path = os.path.join(DATA_DIR, selected_filename)
-        df = pd.read_csv(file_path)
+
+        try:
+            df = read_csv_from_public_url(public_csv_url)
+            st.caption("Toy dataset loaded from public S3 (SSPCloud MinIO).")
+        except Exception as s3_error:
+            local_file_path = os.path.join(DATA_DIR, selected_filename)
+            if os.path.exists(local_file_path):
+                df = pd.read_csv(local_file_path)
+                st.warning(
+                    "Could not read toy dataset from public S3. Falling back to local file. "
+                    f"Reason: {s3_error}"
+                )
+            else:
+                st.error(f"Could not load dataset from public S3: {s3_error}")
+                st.stop()
 
 # --- FIN SECTION CHARGEMENT ---
 
