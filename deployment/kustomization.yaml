@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
-  - ingress.yml
+  - ingress.yaml
 
 namespace: user-asicard
 
