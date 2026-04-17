@@ -20,6 +20,21 @@ To isolate the project dependencies, it is recommended to use a virtual environm
 - Open the app:
 	- `http://localhost:8501`
 
+By default, container logs display `http://localhost:8501`.
+If you map a different host port, open that mapped port in your browser.
+
+### Helper Script For Correct URL Display
+
+Use the helper script to build and run the container while automatically setting
+the Streamlit displayed URL to your chosen host port.
+
+- Make it executable once:
+	- `chmod +x scripts/run_docker.sh`
+- Run on default port `8501`:
+	- `scripts/run_docker.sh`
+- Run on a custom port (example `8504`):
+	- `scripts/run_docker.sh 8504`
+
 ## Toy Data From SSPCloud S3 (Public MinIO)
 
 The app can load built-in toy CSV examples directly from public MinIO storage.
