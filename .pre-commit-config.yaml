@@ -31,7 +31,7 @@ repos:
         name: Custom Keyword Argument Rule
         language: system
         pass_filenames: false
-        entry: bash -c 'PYTHONPATH=. pylint . --ignore=.venv --load-plugins=custom_rule --disable=all --enable=non-keyword-args --score=n'
+        entry: bash -c 'PYTHONPATH=. .venv/bin/pylint . --ignore=.venv --load-plugins=custom_rule --disable=all --enable=non-keyword-args --score=n'
   - repo: https://github.com/jendrikseipp/vulture
     rev: 'v2.3'
     hooks:
