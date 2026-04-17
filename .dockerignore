@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.ipynb_checkpoints
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.vscode
+.DS_Store
+misc/OLD/

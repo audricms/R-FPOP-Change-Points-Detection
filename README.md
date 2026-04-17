@@ -11,6 +11,15 @@ To isolate the project dependencies, it is recommended to use a virtual environm
 - To activate it: `source venv/bin/activate`
 - To install the required dependencies: `pip install -r requirements.txt`
 
+## Run With Docker
+
+- Build the image:
+	- `docker build -t rfpop-streamlit-app .`
+- Run the container:
+	- `docker run --rm -p 8501:8501 rfpop-streamlit-app`
+- Open the app:
+	- `http://localhost:8501`
+
 ### Pre-commit
 
 Pre-commit automatically formats your code before each commit, ensuring that all developers follow the same formatting rules. To install it:
