@@ -10,7 +10,7 @@ jobs:
         with: { python-version: '3.13' }
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - name: Install tooling
+        run: pip install pre-commit pylint
       - name: Run pre-commit
         run: pre-commit run --all-files
