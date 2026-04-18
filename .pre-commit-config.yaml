@@ -51,6 +51,7 @@ repos:
       - id: vulture
         args:
           - "."
+          - ".vulture_whitelist.py"
           - "--exclude"
           - ".venv/,custom_rule.py"
           - "--ignore-decorators"

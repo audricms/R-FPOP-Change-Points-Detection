@@ -1,25 +1,22 @@
 import os
-from io import StringIO
-from urllib.parse import quote, urlsplit, urlunsplit
 
 import pandas as pd
-import requests
 import streamlit as st
 
-# Imports basés sur l'architecture du dossier src/
-# Vous devez vous assurer que ces fonctions renvoient bien l'objet 'fig' de matplotlib.
-from src.model_selection import (
-    plot_sensitivity_tobeta,  # Votre code existant pour le BIC
+from src.model_selection import plot_sensitivity_tobeta
+from src.utils import (
+    build_public_toy_csv_url,
+    list_s3_csv_files,
+    natural_key,
+    read_csv_from_public_url,
 )
 from src.visualization import plot_segments
 
-# Configuration de la page
 st.set_page_config(
     page_title="Changepoint detection in the presence of outliers", layout="wide"
 )
-st.title("Changepoint detection for time series with outliers (RFPOP algorithm)")
+st.title("Changepoint Detection for Time Series with Outliers")
 
-# --- AJOUT DU TEXTE EXPLICATIF ---
 st.markdown(
     """
 **Overview of the application:**
@@ -29,10 +26,10 @@ st.markdown(
 """
 )
 
-with st.expander("ℹ️ Details about the algorithm and parameters"):
+with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
     st.markdown(
         r"""
-    **Details about the algorithm and its parameters:**
+    **Details about the RFPOP algorithm and its parameters:**
 
     **1. Loss functions:**
     * **L2:** Standard quadratic loss. Theoretically more sensitive to outliers (although not always the case).
@@ -54,9 +51,8 @@ with st.expander("ℹ️ Details about the algorithm and parameters"):
     )
 
 
-st.markdown("---")  # Ligne horizontale pour séparer l'introduction de l'outil
+st.markdown("---")
 
-# --- SECTION CHARGEMENT DES DONNÉES ---
 
 DATA_DIR = "data"
 PUBLIC_DATA_URL = os.getenv(
@@ -64,37 +60,14 @@ PUBLIC_DATA_URL = os.getenv(
 )
 
 
-def encode_url_path(url: str) -> str:
-    """Return URL with an encoded path while preserving scheme/host/query."""
-    parts = urlsplit(url)
-    encoded_path = quote(parts.path, safe="/")
-    return urlunsplit(
-        (parts.scheme, parts.netloc, encoded_path, parts.query, parts.fragment)
-    )
-
-
-def build_public_toy_csv_url(base_url: str, filename: str) -> str:
-    """Build a public URL for a CSV file stored in MinIO/S3."""
-    normalized_base = encode_url_path(base_url.rstrip("/"))
-    return f"{normalized_base}/{quote(filename)}"
-
-
-def read_csv_from_public_url(url: str) -> pd.DataFrame:
-    """Read CSV content from an HTTP(S) URL using requests."""
-    response = requests.get(url, timeout=30)
-    response.raise_for_status()
-    return pd.read_csv(StringIO(response.text))
-
-
 internal_files = []
 if os.path.exists(DATA_DIR):
     internal_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
 
-# MODIFICATION : Remplacement de st.sidebar.radio par st.radio
 data_source = st.radio(
     "Source of data",
     ["Upload a time series", "Use a time series from the application (toy examples)"],
-    horizontal=True,  # Met les options sur une seule ligne
+    horizontal=True,
 )
 
 df = None
@@ -106,13 +79,13 @@ if data_source == "Upload a time series":
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
 else:
-    default_toy_files = [
-        "data example 1.csv",
-        "data example 2.csv",
-        "data example 3.csv",
-        "data example 4.csv",
-    ]
-    toy_files = internal_files if internal_files else default_toy_files
+    if internal_files:
+        toy_files = sorted(internal_files, key=natural_key)
+    else:
+        try:
+            toy_files = list_s3_csv_files(PUBLIC_DATA_URL)
+        except Exception:
+            toy_files = []
 
     if not toy_files:
         st.warning("No toy CSV file is configured.")
@@ -137,15 +110,13 @@ else:
                 st.error(f"Could not load dataset from public S3: {s3_error}")
                 st.stop()
 
-# --- FIN SECTION CHARGEMENT ---
 
 if df is not None:
-    colonnes_numeriques = df.select_dtypes(include=["number"]).columns.tolist()
-    if not colonnes_numeriques:
+    numerical_columns = sorted(df.select_dtypes(include=["number"]).columns.tolist())
+    if not numerical_columns:
         st.error("The CSV does not contain any numerical variable.")
         st.stop()
 
-    # --- Fonction pour réinitialiser la mémoire si l'utilisateur change un paramètre ---
     def reset_state():
         if "elbow_done" in st.session_state:
             del st.session_state["elbow_done"]
@@ -153,25 +124,26 @@ if df is not None:
             del st.session_state["elbow_fig"]
 
     col_name = st.selectbox(
-        "Choose the variable to analyze", colonnes_numeriques, on_change=reset_state
+        "Choose the variable to analyze", numerical_columns, on_change=reset_state
     )
 
     col1, col2 = st.columns(2)
     with col1:
-        loss = st.selectbox("Loss", ["huber", "biweight", "l2"], on_change=reset_state)
+        loss_choices = sorted(["huber", "biweight", "l2"])
+        loss = st.selectbox("Loss", loss_choices, on_change=reset_state)
     with col2:
-        method = st.selectbox(
-            "Parameter selection method",
+        method_choices = sorted(
             [
                 "Schwarz Information Criteria",
                 "Elbow Method (recommended if no satisfying results with the SIC method)",
-            ],
-            on_change=reset_state,
+            ]
+        )
+        method = st.selectbox(
+            "Parameter selection method", method_choices, on_change=reset_state
         )
 
     st.markdown("---")
 
-    # --- Bloc d'exécution strictement aligné ---
     if method == "Schwarz Information Criteria":
         if st.button("Start computation (Schwarz Information Criteria)"):
             progress_text = (
@@ -193,7 +165,6 @@ if df is not None:
         method
         == "Elbow Method (recommended if no satisfying results with the SIC method)"
     ):
-        # Le bouton s'affiche ici. S'il ne s'affiche pas, vérifiez l'indentation de ce 'elif'
         if st.button("Generate the elbow plot") or st.session_state.get(
             "elbow_done", False
         ):
@@ -207,9 +178,6 @@ if df is not None:
                     )
                     st.session_state.elbow_fig = fig_elbow
                     st.session_state.elbow_done = True
-                    _ = (
-                        st.session_state.elbow_done
-                    )  # Tricks Vulture into thinking it was used
                 except Exception as e:
                     st.error(f"Error when generating the elbow plot : {e}")
                     st.stop()
