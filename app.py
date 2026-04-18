@@ -3,14 +3,13 @@ import os
 import pandas as pd
 import streamlit as st
 
-from src.model_selection import plot_sensitivity_tobeta
 from src.utils import (
     build_public_toy_csv_url,
     list_s3_csv_files,
     natural_key,
     read_csv_from_public_url,
 )
-from src.visualization import plot_segments
+from src.visualization import plot_segments, plot_sensitivity_to_beta
 
 st.set_page_config(
     page_title="Changepoint detection in the presence of outliers", layout="wide"
@@ -173,7 +172,7 @@ if df is not None:
                 bar = st.progress(0, text=progress_text)
 
                 try:
-                    fig_elbow = plot_sensitivity_tobeta(
+                    fig_elbow = plot_sensitivity_to_beta(
                         df, name=col_name, loss=loss, progress_bar=bar
                     )
                     st.session_state.elbow_fig = fig_elbow

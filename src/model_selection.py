@@ -1,15 +1,12 @@
-from typing import Any, Callable, List, Literal, Sequence
+from typing import Callable, List, Literal, Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.figure import Figure
 from scipy import integrate
 from scipy.stats import norm
 from statsmodels import robust
 
 from src.losses import gamma_builder_biweight, gamma_builder_huber, gamma_builder_L2
-from src.rfpop_algorithms import rfpop_algorithm
 from src.utils import QuadPiece
 
 
@@ -174,78 +171,3 @@ def get_gamma_builder(
             return lambda y_t, t: gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
         return lambda y_t, t: gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
     return lambda y_t, t: gamma_builder_L2(y=y_t, tau_for_new=t)
-
-
-def plot_sensitivity_tobeta(
-    df: pd.DataFrame,
-    name: str,
-    loss: str,
-    scaling_list: list[float] = [
-        0.01,
-        0.1,
-        1,
-        5,
-        10,
-        50,
-        100,
-        500,
-        1000,
-        5000,
-        10000,
-        50000,
-    ],
-    progress_bar: Any = None,
-) -> Figure:
-    """Plot number of detected changepoints as a function of beta scaling for a specific loss.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame containing the series to plot (time series indexed by date).
-    name : str
-        Column name in ``df`` to analyze.
-    loss : str
-        The loss function to use ('huber', 'biweight', 'l2').
-    scaling_list : Sequence[float], optional
-        List of multipliers applied to the theoretical beta.
-    """
-    valid_losses = ["huber", "biweight", "l2"]
-    if loss not in valid_losses:
-        raise ValueError(f"Loss '{loss}' not recognized. Must be one of {valid_losses}")
-
-    y = df[name].dropna()
-
-    beta = compute_penalty_beta(y=y, loss=loss)
-    gamma_builder = get_gamma_builder(y=y, loss=loss)
-
-    list_scaling = np.array(scaling_list) * beta
-    nb_changepoints = []
-    total_steps = len(list_scaling)
-
-    for idx, scaling in enumerate(list_scaling):
-        cp_tau, _, _ = rfpop_algorithm(
-            y=y,
-            gamma_builder=gamma_builder,
-            beta=scaling,
-        )
-        nb_changepoints.append(len(set(cp_tau)))
-
-        # Mise à jour conditionnelle de la barre de progression Streamlit
-        if progress_bar is not None:
-            progress_percentage = int(((idx + 1) / total_steps) * 100)
-            # Streamlit requiert un entier entre 0 et 100
-            progress_percentage = max(0, min(100, progress_percentage))
-            progress_bar.progress(progress_percentage)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-
-    ax.plot(scaling_list, nb_changepoints, marker="o", linestyle="-", markersize=4)
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Beta scaling factor (logscale)")
-    ax.set_ylabel("Number of detected changepoints (logscale)")
-    ax.set_title(f"{name} - {loss} loss: Sensitivity to beta")
-    ax.grid(True, which="both", ls="--", alpha=0.5)
-
-    plt.tight_layout()
-    return fig
