@@ -58,28 +58,16 @@ Open your browser and navigate to: `http://localhost:8501`
 
 ## Run With Docker
 
-### Option 1: Build & Run Locally
+### Build & Run Locally
 
 ```bash
 docker build -t rfpop-streamlit-app .
 docker run --rm -p 8501:8501 rfpop-streamlit-app
 ```
 
-### Option 2: Use the Helper Script
+### Docker Hub Usage
 
-```bash
-chmod +x scripts/run_docker.sh
-scripts/run_docker.sh
-```
-*(To use a custom host port, pass it as an argument: `scripts/run_docker.sh 8504`)*
-
-### Option 3: Pull From Docker Hub
-
-```bash
-docker pull audricms/r-fpop-change-points-detection:latest
-docker run --rm -p 8501:8501 audricms/r-fpop-change-points-detection:latest
-```
-*(Note for Apple Silicon users: append `--platform linux/amd64` to the run command if necessary).*
+Docker Hub acts as the registry between the CI pipeline and the Kubernetes cluster. On every push to `main`, GitHub Actions automatically builds the image and pushes it to Docker Hub (`audricms/r-fpop-change-points-detection:latest`). The Kubernetes deployment manifest then pulls that image directly from Docker Hub when creating or restarting pods (`imagePullPolicy: Always`). You never need to push to Docker Hub manually.
 
 ---
 
