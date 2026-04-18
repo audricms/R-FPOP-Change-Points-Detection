@@ -1,4 +1,4 @@
-from typing import Any, Literal, Sequence
+from typing import Any, Callable, List, Literal, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +10,7 @@ from statsmodels import robust
 
 from src.losses import gamma_builder_biweight, gamma_builder_huber, gamma_builder_L2
 from src.rfpop_algorithms import rfpop_algorithm
+from src.utils import QuadPiece
 
 
 def biweight_phi(z: float, K_std: float) -> float:
@@ -150,6 +151,31 @@ def compute_loss_bound_K(
         return 1.345 * mad
 
 
+def get_gamma_builder(
+    y: Sequence[float], loss: str
+) -> Callable[[float, int], List[QuadPiece]]:
+    """Return a gamma_builder callable bound to the appropriate loss function.
+
+    Parameters
+    ----------
+    y : Sequence[float]
+        Observed signal used to derive the K tuning constant for robust losses.
+    loss : str
+        One of 'l2', 'huber', 'biweight'.
+
+    Returns
+    -------
+    Callable[[float, int], List[QuadPiece]]
+        Ready-to-use gamma builder for ``rfpop_algorithm``.
+    """
+    if loss in ["huber", "biweight"]:
+        K = compute_loss_bound_K(y=y, loss=loss)
+        if loss == "huber":
+            return lambda y_t, t: gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
+        return lambda y_t, t: gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
+    return lambda y_t, t: gamma_builder_L2(y=y_t, tau_for_new=t)
+
+
 def plot_sensitivity_tobeta(
     df: pd.DataFrame,
     name: str,
@@ -190,25 +216,7 @@ def plot_sensitivity_tobeta(
     y = df[name].dropna()
 
     beta = compute_penalty_beta(y=y, loss=loss)
-
-    # Optimisation : Définition de la fonction de construction du gamma hors de la boucle
-    if loss in ["huber", "biweight"]:
-        K = compute_loss_bound_K(y=y, loss=loss)
-
-        if loss == "huber":
-
-            def gamma_builder(y_t, t):
-                return gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
-
-        else:
-
-            def gamma_builder(y_t, t):
-                return gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
-
-    elif loss == "l2":
-
-        def gamma_builder(y_t, t):
-            return gamma_builder_L2(y=y_t, tau_for_new=t)
+    gamma_builder = get_gamma_builder(y=y, loss=loss)
 
     list_scaling = np.array(scaling_list) * beta
     nb_changepoints = []

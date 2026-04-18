@@ -2,8 +2,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib.figure import Figure
 
-from src.losses import gamma_builder_biweight, gamma_builder_huber, gamma_builder_L2
-from src.model_selection import compute_loss_bound_K, compute_penalty_beta
+from src.model_selection import (
+    compute_loss_bound_K,
+    compute_penalty_beta,
+    get_gamma_builder,
+)
 from src.rfpop_algorithms import rfpop_algorithm
 
 
@@ -32,32 +35,11 @@ def plot_segments(
     fig, ax = plt.subplots(figsize=(10, 5))
 
     beta = compute_penalty_beta(y=y, loss=loss)
-
-    if loss in ["huber", "biweight"]:
-        K = compute_loss_bound_K(y=y, loss=loss)
-
-    if loss == "huber":
-        cp_tau, _, _ = rfpop_algorithm(
-            y=y,
-            gamma_builder=(
-                lambda y_t, t: gamma_builder_huber(y=y_t, K=K, tau_for_new=t)
-            ),
-            beta=beta * scaling,
-        )
-    elif loss == "biweight":
-        cp_tau, _, _ = rfpop_algorithm(
-            y=y,
-            gamma_builder=(
-                lambda y_t, t: gamma_builder_biweight(y=y_t, K=K, tau_for_new=t)
-            ),
-            beta=beta * scaling,
-        )
-    elif loss == "l2":
-        cp_tau, _, _ = rfpop_algorithm(
-            y=y,
-            gamma_builder=(lambda y_t, t: gamma_builder_L2(y=y_t, tau_for_new=t)),
-            beta=beta * scaling,
-        )
+    cp_tau, _, _ = rfpop_algorithm(
+        y=y,
+        gamma_builder=get_gamma_builder(y=y, loss=loss),
+        beta=beta * scaling,
+    )
 
     ax.plot(y, ".", markersize=2)
     t = len(y) - 1
@@ -97,6 +79,7 @@ def plot_segments(
     if loss == "l2":
         ax.set_title(f"{name} - {loss} loss\nbeta = {round(beta * scaling, 1)}")
     else:
+        K = compute_loss_bound_K(y=y, loss=loss)
         ax.set_title(
             f"{name} - {loss} loss\nK = {round(K, 1)} | beta = {round(beta * scaling, 1)}"
         )
