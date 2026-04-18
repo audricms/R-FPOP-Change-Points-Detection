@@ -1,4 +1,3 @@
-import st
+import streamlit as st
 
 st.session_state.elbow_done
-st.session_state.elbow_fig
