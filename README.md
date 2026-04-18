@@ -25,8 +25,7 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - `app.py`: Streamlit application entry point
 - `src/`: Core algorithm, loss functions, model selection, and visualization
 - `data/`: Built-in CSV examples used by the app
-- `.github/workflows/`: CI/CD pipelines (code quality, tests, Docker Hub build & push)
-
+- `.github/workflows/`: CI/CD pipelines
 ---
 
 ## Quick Start For Developers
@@ -35,16 +34,24 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 
 - Python 3.x
 - `pip`
-- Optional: Docker
-- Optional: `kubectl` with a configured cluster context (e.g., SSPCloud)
+- Docker
+- `kubectl` with a configured cluster context (e.g., SSPCloud)
 
 ### Local Setup
 
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
+#### Dependencies
+
+To isolate the project dependencies, it is recommended to use a virtual environment.
+- To create the virtual environment: `python -m venv venv`
+- To activate it: `source venv/bin/activate`
+- To install the required dependencies: `pip install -r requirements.txt`
+
+#### Pre-commit
+
+Pre-commit automatically formats your code before each commit, ensuring that all developers follow the same formatting rules. To install it:
+- Install Pre-commit: `pip install pre-commit`
+- Set up Pre-commit in your project: `pre-commit install`
+Once installed, Pre-commit will automatically run the defined checks and formatting before each commit.
 
 ### Run The App Locally
 
@@ -114,20 +121,7 @@ The default remote base URL is configured as:
 You can override this remote base URL by setting the following environment variable in your deployment configuration:
 - `PUBLIC_DATA_URL`
 
-## Development Commands
+---
 
-Ensure you have installed the development tools from `requirements.txt`. You can run the following checks:
-
-```bash
-pytest
-ruff check .
-black .
-pylint src app.py
-```
-
-It is highly recommended to use `pre-commit` to automate formatting before pushing code:
-
-```bash
-pip install pre-commit
-pre-commit install
-```
+## Streamlit app
+The application is reachable at: `https://rfpop-vgraillat.user.lab.sspcloud.fr`
