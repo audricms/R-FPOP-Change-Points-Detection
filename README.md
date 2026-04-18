@@ -17,16 +17,15 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - A Streamlit web application (`app.py`) to test the algorithm interactively
 - Toy datasets located in `data/`
 - Docker image support for both local execution and cloud deployment
-- Kubernetes manifests in `deployment/` (configured with Kustomize for reproducibility)
+- CI/CD pipelines via GitHub Actions (linting, tests, Docker Hub build & push)
+- GitOps-based deployment via a dedicated [application-deployment](https://github.com/vincentgraillat/application-deployment) repository and ArgoCD
 
 ## Repository Layout
 
 - `app.py`: Streamlit application entry point
 - `src/`: Core algorithm, loss functions, model selection, and visualization
 - `data/`: Built-in CSV examples used by the app
-- `deployment/`: Kubernetes Deployment, Service, Ingress, and Kustomization manifests
-- `scripts/run_docker.sh`: Script to build and run the Docker image locally
-- `scripts/run_deployment.sh`: Script to deploy to Kubernetes and port-forward locally
+- `.github/workflows/`: CI/CD pipelines (code quality, tests, Docker Hub build & push)
 
 ---
 
@@ -67,37 +66,38 @@ docker run --rm -p 8501:8501 rfpop-streamlit-app
 
 ### Docker Hub Usage
 
-Docker Hub acts as the registry between the CI pipeline and the Kubernetes cluster. On every push to `main`, GitHub Actions automatically builds the image and pushes it to Docker Hub (`audricms/r-fpop-change-points-detection:latest`). The Kubernetes deployment manifest then pulls that image directly from Docker Hub when creating or restarting pods (`imagePullPolicy: Always`). You never need to push to Docker Hub manually.
+Docker Hub is the image registry between the CI pipeline and the Kubernetes cluster. The `prod.yml` workflow triggers on two events:
+
+- **Push to `main`**: builds and pushes an image tagged `main`.
+- **Git tag `v*.*.*`**: builds and pushes an image tagged with the exact version (e.g., `v1.2.0`). This is the tag used for production deployments.
+
+Image tagging is handled automatically by `docker/metadata-action`. You never need to push to Docker Hub manually.
 
 ---
 
-## Run On Kubernetes (SSPCloud)
+## Deployment (GitOps via ArgoCD)
 
-This project is built for reproducibility. We use **Kustomize** so you can easily deploy the app to your personal Kubernetes namespace without altering the core deployment files.
+Kubernetes deployment is managed by a separate, dedicated repository following GitOps principles: **[application-deployment](https://github.com/vincentgraillat/application-deployment)**.
 
-### 1. Configure Your Environment
-Before deploying, open the `deployment/kustomization.yaml` file and update it with your personal SSPCloud username:
-1. Change `namespace: user-asicard` to your active namespace (e.g., `user-jsmith`).
-2. Update the two Ingress URL hostnames under the `patches:` section to ensure your URL is unique (e.g., `rfpop-change-points-jsmith.lab.sspcloud.fr`).
+### How it works
 
-### 2. Deploy
-Once configured, deploy the application using the `-k` (Kustomize) flag:
-```bash
-kubectl apply -k deployment/
+```
+Create a git tag vX.Y.Z on this repo
+        │
+        ▼
+GitHub Actions builds & pushes audricms/r-fpop-change-points-detection:vX.Y.Z to Docker Hub
+        │
+Update image tag in application-deployment/deployment/deployment.yaml
+        │
+        ▼
+ArgoCD detects manifest drift → auto-syncs cluster → new image is live
 ```
 
-### 3. Monitor
-Check the status of your pods and view logs:
-```bash
-kubectl get pods -l app=rfpop-app
-kubectl logs -l app=rfpop-app -f --tail=200
-```
-
-### Clean Up
-To remove the application from your cluster:
-```bash
-kubectl delete -k deployment/
-```
+**To release a new version:**
+1. Push a tag to this repo: `git tag vX.Y.Z && git push origin vX.Y.Z`
+2. Wait for the GitHub Actions build to complete.
+3. Update the image tag in `application-deployment/deployment/deployment.yaml` to `vX.Y.Z` and merge to `main`.
+4. ArgoCD detects the change and rolls out the new image automatically.
 
 ---
 
