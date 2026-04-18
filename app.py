@@ -2,6 +2,7 @@ import os
 
 import pandas as pd
 import streamlit as st
+from dotenv import load_dotenv
 
 from src.utils import (
     build_public_toy_csv_url,
@@ -9,8 +10,10 @@ from src.utils import (
     natural_key,
     read_csv_from_public_url,
 )
-from src.variables import VALID_LOSSES
+from src.variables import DATA_DIR, VALID_LOSSES
 from src.visualization import plot_segments, plot_sensitivity_to_beta
+
+load_dotenv()
 
 st.set_page_config(
     page_title="Changepoint detection in the presence of outliers", layout="wide"
@@ -54,10 +57,7 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
 st.markdown("---")
 
 
-DATA_DIR = "data"
-PUBLIC_DATA_URL = os.getenv(
-    "PUBLIC_DATA_URL", "https://minio.lab.sspcloud.fr/asicard/MPPDS - Projet"
-)
+S3_DATA_URL = os.getenv("S3_DATA_URL")
 
 
 internal_files = []
@@ -83,7 +83,7 @@ else:
         toy_files = sorted(internal_files, key=natural_key)
     else:
         try:
-            toy_files = list_s3_csv_files(PUBLIC_DATA_URL)
+            toy_files = list_s3_csv_files(S3_DATA_URL)
         except Exception:
             toy_files = []
 
@@ -92,7 +92,7 @@ else:
     else:
         selected_filename = st.selectbox("Choose a toy dataset", toy_files)
         public_csv_url = build_public_toy_csv_url(
-            base_url=PUBLIC_DATA_URL, filename=selected_filename
+            base_url=S3_DATA_URL, filename=selected_filename
         )
 
         try:

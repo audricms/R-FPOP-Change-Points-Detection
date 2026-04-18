@@ -53,6 +53,16 @@ Pre-commit automatically formats your code before each commit, ensuring that all
 - Set up Pre-commit in your project: `pre-commit install`
 Once installed, Pre-commit will automatically run the defined checks and formatting before each commit.
 
+#### Environment Variables
+
+Create a `.env` file at the project root with the following variable:
+
+```
+S3_DATA_URL=https://minio.lab.sspcloud.fr/asicard/MPPDS - Projet
+```
+
+This URL points to the public S3 bucket used to load toy datasets. The app will fall back to local files in `data/` if this variable is not set or the remote is unreachable.
+
 ### Run The App Locally
 
 ```bash
@@ -119,7 +129,7 @@ The default remote base URL is configured as:
 `https://minio.lab.sspcloud.fr/asicard/MPPDS%20-%20Projet`
 
 You can override this remote base URL by setting the following environment variable in your deployment configuration:
-- `PUBLIC_DATA_URL`
+- `S3_DATA_URL`
 
 ---
 

@@ -4,6 +4,7 @@ numpy==2.2.4
 pandas==2.2.3
 pylint>=3.0.0
 pytest==8.3.5
+python-dotenv==1.1.0
 ruff==0.11.2
 scipy==1.15.2
 statsmodels==0.14.4
