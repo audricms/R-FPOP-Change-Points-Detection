@@ -1,33 +1,7 @@
-from typing import List, NamedTuple
+from typing import List
 
 from src.constants import INF
-
-
-class QuadPiece(NamedTuple):
-    """A named tuple representing a piece of a piecewise quadratic function.
-
-    Fields
-    ------
-    a: float
-        Left bound of the interval (open)
-    b: float
-        Right bound of the interval (closed)
-    A: float
-        Quadratic coefficient (theta^2)
-    B: float
-        Linear coefficient (theta)
-    C: float
-        Constant term
-    tau: int
-        Index of the last changepoint associated with this piece
-    """
-
-    a: float
-    b: float
-    A: float
-    B: float
-    C: float
-    tau: int
+from src.utils import QuadPiece
 
 
 def gamma_builder_L2(y: float, tau_for_new: int) -> List[QuadPiece]:
