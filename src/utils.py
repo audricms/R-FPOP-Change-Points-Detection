@@ -1,10 +1,38 @@
 import re
 import xml.etree.ElementTree as ET
 from io import StringIO
+from typing import NamedTuple
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import pandas as pd
 import requests
+
+
+class QuadPiece(NamedTuple):
+    """A named tuple representing a piece of a piecewise quadratic function.
+
+    Fields
+    ------
+    a: float
+        Left bound of the interval (open)
+    b: float
+        Right bound of the interval (closed)
+    A: float
+        Quadratic coefficient (theta^2)
+    B: float
+        Linear coefficient (theta)
+    C: float
+        Constant term
+    tau: int
+        Index of the last changepoint associated with this piece
+    """
+
+    a: float
+    b: float
+    A: float
+    B: float
+    C: float
+    tau: int
 
 
 def natural_key(s: str):

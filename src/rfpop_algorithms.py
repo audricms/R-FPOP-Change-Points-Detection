@@ -3,7 +3,7 @@ from typing import List
 
 import numpy as np
 
-from src.losses import QuadPiece
+from src.utils import QuadPiece
 
 
 def min_over_theta(Qt_pieces: List[QuadPiece]):
