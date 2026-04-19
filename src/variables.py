@@ -24,6 +24,8 @@ DEFAULT_SCALING_MULTIPLIERS: list[float] = [
 ]
 VALID_LOSSES: list[str] = ["huber", "biweight", "l2"]
 
+MIN_SERIES_LENGTH: int = 10
+MAX_MISSING_RATIO: float = 0.2
 
 DATA_DIR: str = "data"
 S3_ENDPOINT_URL: str = "https://minio.lab.sspcloud.fr"

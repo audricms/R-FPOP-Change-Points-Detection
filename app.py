@@ -7,7 +7,13 @@ from dotenv import load_dotenv
 
 from src.logger import get_logger
 from src.utils import list_s3_csv_files, natural_key, read_csv_from_s3
-from src.variables import DATA_DIR, S3_ENDPOINT_URL, VALID_LOSSES
+from src.variables import (
+    DATA_DIR,
+    MAX_MISSING_RATIO,
+    MIN_SERIES_LENGTH,
+    S3_ENDPOINT_URL,
+    VALID_LOSSES,
+)
 from src.visualization import plot_segments, plot_sensitivity_to_beta
 
 load_dotenv()
@@ -78,6 +84,25 @@ if data_source == "Upload a time series":
     )
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+
+        datetime_candidates = [
+            col
+            for col in df.columns
+            if pd.api.types.is_datetime64_any_dtype(df[col])
+            or (
+                df[col].dtype == object
+                and pd.to_datetime(df[col], errors="coerce").notna().mean() > 0.9
+            )
+        ]
+        if datetime_candidates:
+            time_col = st.selectbox(
+                "Datetime column detected. Use as time axis?",
+                options=["None"] + datetime_candidates,
+            )
+            if time_col != "None":
+                df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
+                df = df.set_index(time_col).sort_index()
+
         logger.info(
             "dataset_loaded",
             extra={"source": "upload", "dataset_filename": uploaded_file.name},
@@ -166,6 +191,22 @@ if df is not None:
     col_name = st.selectbox(
         "Select a feature to analyze", numerical_columns, on_change=reset_state
     )
+
+    col_series = df[col_name]
+    missing_ratio = col_series.isna().mean()
+    valid_count = col_series.notna().sum()
+
+    if valid_count < MIN_SERIES_LENGTH:
+        st.error(
+            f"The selected column has only {valid_count} non-missing values. "
+            f"At least {MIN_SERIES_LENGTH} are required."
+        )
+        st.stop()
+    if missing_ratio > MAX_MISSING_RATIO:
+        st.warning(
+            f"The selected column has {missing_ratio:.0%} missing values. "
+            "Results may be unreliable."
+        )
 
     col1, col2 = st.columns(2)
     with col1:
