@@ -83,21 +83,27 @@ if data_source == "Upload a time series":
             extra={"source": "upload", "dataset_filename": uploaded_file.name},
         )
 else:
-    if internal_files:
+    try:
+        toy_files = list_s3_csv_files(
+            bucket=S3_BUCKET, prefix=S3_PREFIX, endpoint_url=S3_ENDPOINT_URL
+        )
+        logger.info("s3_listing_succeeded", extra={"file_count": len(toy_files)})
+    except Exception as list_error:
+        logger.warning(
+            "s3_listing_failed",
+            extra={"error": str(list_error), "fallback": "local"},
+        )
         toy_files = sorted(internal_files, key=natural_key)
-    else:
-        try:
-            toy_files = list_s3_csv_files(
-                bucket=S3_BUCKET, prefix=S3_PREFIX, endpoint_url=S3_ENDPOINT_URL
-            )
-        except Exception:
-            toy_files = []
 
     if not toy_files:
         st.warning("No toy CSV file is configured.")
     else:
         selected_filename = st.selectbox("Choose a toy dataset", toy_files)
-        s3_key = f"{S3_PREFIX}{selected_filename}"
+        s3_key = (
+            f"{S3_PREFIX.rstrip('/')}/{selected_filename}"
+            if S3_PREFIX
+            else selected_filename
+        )
 
         try:
             t0 = time.perf_counter()
@@ -113,7 +119,7 @@ else:
                     "duration_ms": duration_ms,
                 },
             )
-            st.caption("Toy dataset loaded from public S3 (SSPCloud MinIO).")
+            st.caption("Toy dataset loaded from public S3.")
         except Exception as s3_error:
             local_file_path = os.path.join(DATA_DIR, selected_filename)
             if os.path.exists(local_file_path):

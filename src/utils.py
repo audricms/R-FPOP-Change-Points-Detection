@@ -1,8 +1,8 @@
 import re
 from typing import NamedTuple
 
-import boto3
 import pandas as pd
+import s3fs
 
 
 class QuadPiece(NamedTuple):
@@ -49,6 +49,10 @@ def natural_key(s: str) -> list[int | str]:
     return [int(p) if p.isdigit() else p.lower() for p in parts]
 
 
+def get_fs(endpoint_url: str | None) -> s3fs.S3FileSystem:
+    return s3fs.S3FileSystem(anon=True, client_kwargs={"endpoint_url": endpoint_url})
+
+
 def list_s3_csv_files(
     bucket: str, prefix: str = "", endpoint_url: str | None = None
 ) -> list[str]:
@@ -68,15 +72,10 @@ def list_s3_csv_files(
     list[str]
         Filenames sorted with natural ordering.
     """
-    s3 = boto3.client("s3", endpoint_url=endpoint_url)
-    paginator = s3.get_paginator("list_objects_v2")
-    pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
-    keys = [
-        obj["Key"].split("/")[-1]
-        for page in pages
-        for obj in page.get("Contents", [])
-        if obj["Key"].endswith(".csv")
-    ]
+    fs = get_fs(endpoint_url)
+    path = f"{bucket}/{prefix.rstrip('/')}/" if prefix else bucket
+    entries = fs.ls(path, detail=False)
+    keys = [e.split("/")[-1] for e in entries if e.endswith(".csv")]
     return sorted(keys, key=natural_key)
 
 
@@ -99,6 +98,6 @@ def read_csv_from_s3(
     pd.DataFrame
         Parsed contents of the CSV file.
     """
-    s3 = boto3.client("s3", endpoint_url=endpoint_url)
-    obj = s3.get_object(Bucket=bucket, Key=key)
-    return pd.read_csv(obj["Body"])
+    fs = get_fs(endpoint_url)
+    with fs.open(f"{bucket}/{key}") as f:
+        return pd.read_csv(f)
