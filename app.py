@@ -79,7 +79,8 @@ if data_source == "Upload a time series":
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         logger.info(
-            "dataset_loaded", extra={"source": "upload", "filename": uploaded_file.name}
+            "dataset_loaded",
+            extra={"source": "upload", "dataset_filename": uploaded_file.name},
         )
 else:
     if internal_files:
@@ -108,7 +109,7 @@ else:
                 "dataset_loaded",
                 extra={
                     "source": "s3",
-                    "filename": selected_filename,
+                    "dataset_filename": selected_filename,
                     "duration_ms": duration_ms,
                 },
             )
@@ -120,7 +121,7 @@ else:
                 logger.warning(
                     "s3_load_failed",
                     extra={
-                        "filename": selected_filename,
+                        "dataset_filename": selected_filename,
                         "error": str(s3_error),
                         "fallback": "local",
                     },
@@ -132,7 +133,10 @@ else:
             else:
                 logger.error(
                     "dataset_load_failed",
-                    extra={"filename": selected_filename, "error": str(s3_error)},
+                    extra={
+                        "dataset_filename": selected_filename,
+                        "error": str(s3_error),
+                    },
                 )
                 st.error(f"Could not load dataset from public S3: {s3_error}")
                 st.stop()
