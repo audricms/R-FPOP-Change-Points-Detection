@@ -46,7 +46,9 @@ def natural_key(s: str) -> list[int | str]:
         Alternating string and integer parts, suitable for use as a sort key.
     """
     parts = re.split(r"(\d+)", s)
-    return [int(p) if p.isdigit() else p.lower() for p in parts]
+    return [
+        int(p) if p.isdigit() else p.lower().replace("_", "").strip() for p in parts
+    ]
 
 
 def get_fs(endpoint_url: str | None) -> s3fs.S3FileSystem:
