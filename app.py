@@ -38,12 +38,16 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
     * **Huber / Biweight:** Robust loss functions. They limit the influence of extreme values, preventing the algorithm from falsely detecting outliers as structural changepoints.
 
     **2. Parameters:**
-    * **Penalty factor ($\beta$):** This represents the cost of adding a new changepoint to the model. A higher $\beta$ forces the algorithm to detect fewer changepoints. A lower $\beta$ increases sensitivity to outliers.
+    * **Penalty factor ($\beta$):** This represents the cost of adding a new changepoint to the model. A higher $\beta$ forces the algorithm to detect fewer changepoints. A lower $\beta$ increases sensitivity to outliers. Here $\beta$ is chosen by the Schwarz Information Criteria.
+    * **Scaling multiplier ($\gamma$):** A multiplicative factor applied to $\beta$. Setting $\gamma = 1$ (the default) runs the algorithm with the SIC penalty as-is.
     * **Robustness threshold ($K$):** This parameter is specific to the Huber and Biweight losses. It defines the boundary beyond which an observation is classified as an outlier. By capping the influence of values exceeding $K$, the algorithm won't detect isolated outliers as false changepoints.
 
     **3. Parameter selection:**
-    * **Schwarz Information Criteria (SIC):** The automated statistical method proposed in the paper, used to penalize the addition of new changepoints and avoid overfitting. The algorithm always runs with a scaling multiplier $\gamma$ applied to $\beta^{SIC}$: by default $\gamma = 1$ (pure SIC). However, in some cases the order of magnitude suggested by SIC is inappropriate and the algorithm detects too few or too many changepoints.
-    * **Elbow plot (optional helper):** If the default SIC result is not satisfying, you can generate an elbow plot — a visual heuristic that shows the number of detected changepoints against the order of magnitude of $\beta$. The optimal order of magnitude is typically located just before the "elbow" of the curve, where the drop in changepoints stabilizes. Once you have identified a good order of magnitude $\gamma$ from the plot, enter it as the scaling multiplier and re-run the algorithm. The values of $(K,\beta)$ used will then be $(K^{SIC},\gamma \times \beta^{SIC})$, where $K^{SIC}, \beta^{SIC}$ are the parameters chosen by SIC.
+    * Select the **feature** to analyze
+    * Select a **loss function**
+    * The algorithm always uses $\beta = \gamma \times \beta^{SIC}$ and $K = K^{SIC}$, where $\beta^{SIC}$ and $K^{SIC}$ are derived from the Schwarz Information Criteria. By default $\gamma = 1$, which corresponds to the pure SIC solution.
+    * If the result is not satisfying (too many or too few changepoints) you can adjust **$\gamma$** manually.
+    * **Elbow plot (optional helper):** To guide your choice of $\gamma$, you can generate an elbow plot showing the number of detected changepoints across a grid of $\gamma$ values. The optimal $\gamma$ is typically located just before the "elbow" of the curve, where the number of changepoints stabilizes. Once identified, enter that value as the scaling multiplier and re-run the algorithm.
 
     **4. About the success and failure of the algorithm:**
     * Detecting changepoints in time series with outliers is a very difficult task, and in some cases, even this algorithm fails to solve the problem and produces oversegmentation (detecting too many changepoints) or undersegmentation (detecting too few changepoints).
@@ -160,7 +164,7 @@ if df is not None:
             del st.session_state["elbow_fig"]
 
     col_name = st.selectbox(
-        "Choose the variable to analyze", numerical_columns, on_change=reset_state
+        "Select a feature to analyze", numerical_columns, on_change=reset_state
     )
 
     col1, col2 = st.columns(2)
@@ -169,12 +173,12 @@ if df is not None:
             loss_name.capitalize(): loss_name for loss_name in sorted(VALID_LOSSES)
         }
         loss_label = st.selectbox(
-            "Choose the loss function", list(loss_capitalized), on_change=reset_state
+            "Select a loss function", list(loss_capitalized), on_change=reset_state
         )
         loss = loss_capitalized[loss_label]
     with col2:
         chosen_scaling = st.number_input(
-            "Choose the scaling multiplier for β (1.0 = pure SIC)",
+            "Select a scaling multiplier for β (1.0 = pure SIC)",
             min_value=0.001,
             value=1.0,
             format="%f",
