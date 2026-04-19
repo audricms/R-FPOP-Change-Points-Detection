@@ -162,12 +162,6 @@ The application loads toy CSV datasets from two potential sources:
 1. **Local files** stored in the `data/` directory.
 2. **Public S3 Storage** (SSPCloud MinIO).
 
-The default remote base URL is configured as:
-`https://minio.lab.sspcloud.fr/asicard/MPPDS%20-%20Projet`
-
-You can override this remote base URL by setting the following environment variable in your deployment configuration:
-- `S3_DATA_URL`
-
 ---
 
 ## Streamlit app
