@@ -103,3 +103,28 @@ def read_csv_from_s3(
     fs = get_fs(endpoint_url)
     with fs.open(f"{bucket}/{key}") as f:
         return pd.read_csv(f)
+
+
+def detect_datetime_candidates(df: pd.DataFrame) -> list[str]:
+    return [
+        col
+        for col in df.columns
+        if pd.api.types.is_datetime64_any_dtype(df[col])
+        or (
+            df[col].dtype == object
+            and max(
+                pd.to_datetime(df[col], errors="coerce", dayfirst=False).notna().mean(),
+                pd.to_datetime(df[col], errors="coerce", dayfirst=True).notna().mean(),
+            )
+            > 0.9
+        )
+    ]
+
+
+def set_datetime_index(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
+    parsed = pd.to_datetime(df[time_col], errors="coerce", dayfirst=False)
+    if parsed.isna().mean() > 0.1:
+        parsed = pd.to_datetime(df[time_col], errors="coerce", dayfirst=True)
+    df = df.copy()
+    df[time_col] = parsed
+    return df.set_index(time_col).sort_index()

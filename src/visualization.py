@@ -118,16 +118,16 @@ def plot_segments(
         )
 
     if loss == "l2":
-        title = f"Detected changepoints in {name.replace('_', ' ').capitalize()} with {loss.capitalize()} loss | β = {round(beta * scaling, 1)}"
+        title = f"Detected changepoints in <i>{name}</i> with {loss.capitalize()} loss | β = {round(beta * scaling, 1)}"
     else:
         K = compute_loss_bound_K(y=y, loss=loss)
-        title = f"Detected changepoints in {name.replace('_', ' ').capitalize()} with {loss.capitalize()} loss | K = {round(K, 1)} & β = {round(beta * scaling, 1)}"
+        title = f"Detected changepoints in <i>{name}</i> with {loss.capitalize()} loss | K = {round(K, 1)} & β = {round(beta * scaling, 1)}"
 
     x_label = y.index.name if y.index.name else "Index"
     fig.update_layout(
         title=title,
         xaxis_title=x_label,
-        yaxis_title=name.replace("_", " ").capitalize(),
+        yaxis_title=name,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
@@ -206,7 +206,7 @@ def plot_sensitivity_to_beta(
         )
     )
     fig.update_layout(
-        title=f"Sensitivity to β of the number of changepoints in {name.replace('_', ' ').capitalize()} with {loss.capitalize()} loss",
+        title=f"Sensitivity to β of the number of changepoints in <i>{name}</i> with {loss.capitalize()} loss",
         xaxis=dict(type="log", title="Scaling multiplier"),
         yaxis=dict(type="log", title="Number of detected changepoints"),
     )

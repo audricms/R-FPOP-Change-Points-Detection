@@ -6,7 +6,13 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from src.logger import get_logger
-from src.utils import list_s3_csv_files, natural_key, read_csv_from_s3
+from src.utils import (
+    detect_datetime_candidates,
+    list_s3_csv_files,
+    natural_key,
+    read_csv_from_s3,
+    set_datetime_index,
+)
 from src.variables import (
     DATA_DIR,
     MAX_MISSING_RATIO,
@@ -84,24 +90,6 @@ if data_source == "Upload a time series":
     )
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
-
-        datetime_candidates = [
-            col
-            for col in df.columns
-            if pd.api.types.is_datetime64_any_dtype(df[col])
-            or (
-                df[col].dtype == object
-                and pd.to_datetime(df[col], errors="coerce").notna().mean() > 0.9
-            )
-        ]
-        if datetime_candidates:
-            time_col = st.selectbox(
-                "Datetime column detected. Use as time axis?",
-                options=["None"] + datetime_candidates,
-            )
-            if time_col != "None":
-                df[time_col] = pd.to_datetime(df[time_col], errors="coerce")
-                df = df.set_index(time_col).sort_index()
 
         logger.info(
             "dataset_loaded",
@@ -191,6 +179,15 @@ if df is not None:
     col_name = st.selectbox(
         "Select a feature to analyze", numerical_columns, on_change=reset_state
     )
+
+    datetime_candidates = detect_datetime_candidates(df)
+    if datetime_candidates:
+        time_col = st.selectbox(
+            "Datetime column(s) detected. Select one to use as time axis",
+            options=["No, I want to use the index"] + datetime_candidates,
+        )
+        if time_col != "No, I want to use the index":
+            df = set_datetime_index(df, time_col)
 
     col_series = df[col_name]
     missing_ratio = col_series.isna().mean()
