@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 import pytest
-from matplotlib.figure import Figure
 
 from src.visualization import plot_segments, plot_sensitivity_to_beta
 
@@ -15,7 +15,7 @@ def step_df():
 
 def test_plot_segments_returns_figure(step_df):
     fig = plot_segments(df=step_df, name="signal", loss="l2")
-    assert isinstance(fig, Figure)
+    assert isinstance(fig, go.Figure)
 
 
 def test_plot_segments_invalid_loss_raises(step_df):
@@ -30,4 +30,4 @@ def test_plot_sensitivity_to_beta_returns_figure(step_df):
         loss="l2",
         scaling_list=[0.1, 1.0, 10.0],
     )
-    assert isinstance(fig, Figure)
+    assert isinstance(fig, go.Figure)
