@@ -165,13 +165,16 @@ if df is not None:
 
     col1, col2 = st.columns(2)
     with col1:
-        loss_choices = sorted(VALID_LOSSES)
-        loss = st.selectbox(
-            "Choose the loss function", loss_choices, on_change=reset_state
+        loss_capitalized = {
+            loss_name.capitalize(): loss_name for loss_name in sorted(VALID_LOSSES)
+        }
+        loss_label = st.selectbox(
+            "Choose the loss function", list(loss_capitalized), on_change=reset_state
         )
+        loss = loss_capitalized[loss_label]
     with col2:
         chosen_scaling = st.number_input(
-            "Scaling multiplier for β (1.0 = pure SIC)",
+            "Choose the scaling multiplier for β (1.0 = pure SIC)",
             min_value=0.001,
             value=1.0,
             format="%f",

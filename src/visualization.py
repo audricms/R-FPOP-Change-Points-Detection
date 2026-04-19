@@ -12,7 +12,7 @@ from src.model_selection import (
     get_gamma_builder,
 )
 from src.rfpop_algorithms import rfpop_algorithm
-from src.variables import VALID_LOSSES
+from src.variables import DEFAULT_SCALING_MULTIPLIERS, VALID_LOSSES
 
 logger = get_logger(__name__)
 
@@ -31,7 +31,7 @@ def plot_segments(
     loss : str
         The loss function to use ('huber', 'biweight', 'l2').
     scaling : float, optional
-        Scaling multiplier for beta, by default 1.0.
+        Scaling multiplier for β, by default 1.0.
     """
     if loss not in VALID_LOSSES:
         raise ValueError(f"Loss '{loss}' not recognized. Must be one of {VALID_LOSSES}")
@@ -118,15 +118,15 @@ def plot_segments(
         )
 
     if loss == "l2":
-        title = f"{name} — {loss} loss | beta = {round(beta * scaling, 1)}"
+        title = f"{name.capitalize()} — {loss.capitalize()} loss | β = {round(beta * scaling, 1)}"
     else:
         K = compute_loss_bound_K(y=y, loss=loss)
-        title = f"{name} — {loss} loss | K = {round(K, 1)} | beta = {round(beta * scaling, 1)}"
+        title = f"{name.capitalize()} — {loss.capitalize()} loss | K = {round(K, 1)} | β = {round(beta * scaling, 1)}"
 
     fig.update_layout(
         title=title,
         xaxis_title="Index",
-        yaxis_title=name,
+        yaxis_title=name.capitalize(),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
@@ -137,23 +137,10 @@ def plot_sensitivity_to_beta(
     df: pd.DataFrame,
     name: str,
     loss: str,
-    scaling_list: list[float] = [
-        0.01,
-        0.1,
-        1,
-        5,
-        10,
-        50,
-        100,
-        500,
-        1000,
-        5000,
-        10000,
-        50000,
-    ],
+    scaling_list: list[float] | None = None,
     progress_bar: Any = None,
 ) -> go.Figure:
-    """Plot number of detected changepoints as a function of beta scaling for a specific loss.
+    """Plot number of detected changepoints as a function of β scaling for a specific loss.
 
     Parameters
     ----------
@@ -164,10 +151,13 @@ def plot_sensitivity_to_beta(
     loss : str
         The loss function to use ('huber', 'biweight', 'l2').
     scaling_list : Sequence[float], optional
-        List of multipliers applied to the theoretical beta.
+        List of multipliers applied to the theoretical β.
     """
     if loss not in VALID_LOSSES:
         raise ValueError(f"Loss '{loss}' not recognized. Must be one of {VALID_LOSSES}")
+
+    if scaling_list is None:
+        scaling_list = DEFAULT_SCALING_MULTIPLIERS
 
     y = df[name].dropna()
 
@@ -215,9 +205,9 @@ def plot_sensitivity_to_beta(
         )
     )
     fig.update_layout(
-        title=f"{name} — {loss} loss: Sensitivity to beta",
-        xaxis=dict(type="log", title="Beta scaling factor (logscale)"),
-        yaxis=dict(type="log", title="Number of detected changepoints (logscale)"),
+        title=f"Sensitivity to β for {name.capitalize()} with {loss.capitalize()} loss",
+        xaxis=dict(type="log", title="β scaling multiplier"),
+        yaxis=dict(type="log", title="Number of detected changepoints"),
     )
 
     return fig
