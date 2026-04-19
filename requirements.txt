@@ -1,7 +1,7 @@
 black==25.1.0
-matplotlib==3.10.1
 numpy==2.2.4
 pandas==2.2.3
+plotly==6.7.0
 pylint==4.0.5
 pytest==8.3.5
 python-dotenv==1.0.0

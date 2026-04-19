@@ -192,7 +192,7 @@ if df is not None:
                 bar.progress(50, text="Running the algorithm...")
                 fig = plot_segments(df, name=col_name, loss=loss, scaling=1.0)
                 bar.progress(100, text="End.")
-                st.pyplot(fig)
+                st.plotly_chart(fig, use_container_width=True)
             except Exception as e:
                 logger.error(
                     "algorithm_error",
@@ -229,7 +229,7 @@ if df is not None:
                 finally:
                     bar.empty()
 
-            st.pyplot(st.session_state.elbow_fig)
+            st.plotly_chart(st.session_state.elbow_fig, use_container_width=True)
 
             st.markdown("### Manually choose the order of magnitude of beta")
             chosen_scaling = st.number_input(
@@ -253,7 +253,7 @@ if df is not None:
                         df, name=col_name, loss=loss, scaling=chosen_scaling
                     )
                     bar_final.progress(100, text="End")
-                    st.pyplot(fig_final)
+                    st.plotly_chart(fig_final, use_container_width=True)
                 except Exception as e:
                     logger.error(
                         "algorithm_error",

@@ -1,10 +1,9 @@
 import time
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.figure import Figure
+import plotly.graph_objects as go
 
 from src.logger import get_logger
 from src.model_selection import (
@@ -20,7 +19,7 @@ logger = get_logger(__name__)
 
 def plot_segments(
     df: pd.DataFrame, name: str, loss: str, scaling: float = 1.0
-) -> Figure:
+) -> go.Figure:
     """Plot detected segments for a specific loss.
 
     Parameters
@@ -38,8 +37,6 @@ def plot_segments(
         raise ValueError(f"Loss '{loss}' not recognized. Must be one of {VALID_LOSSES}")
 
     y = df[name].dropna()
-
-    fig, ax = plt.subplots(figsize=(10, 5))
 
     beta = compute_penalty_beta(y=y, loss=loss)
     t0 = time.perf_counter()
@@ -63,54 +60,76 @@ def plot_segments(
         },
     )
 
-    ax.plot(y, ".", markersize=2)
+    fig = go.Figure()
+
+    fig.add_trace(
+        go.Scatter(
+            x=list(y.index),
+            y=list(y),
+            mode="markers",
+            marker=dict(size=3, color="steelblue"),
+            name="Data",
+        )
+    )
+
     t = len(y) - 1
     segments = []
-
     while t > 0:
         t_prev = int(cp_tau[t])
         segments.append((t_prev, t))
         t = t_prev
-
     segments.reverse()
 
-    for start_idx, end_idx in segments:
+    has_changepoints = False
+    for i, (start_idx, end_idx) in enumerate(segments):
         segment_data = y.iloc[start_idx : end_idx + 1]
         seg_mean = segment_data.mean()
-
         date_start = y.index[start_idx]
         date_end = y.index[end_idx]
 
-        ax.plot(
-            [date_start, date_end],
-            [seg_mean, seg_mean],
-            color="black",
-            linewidth=2,
-            label="Mean on each segment" if start_idx == 0 else "",
+        fig.add_trace(
+            go.Scatter(
+                x=[date_start, date_end],
+                y=[seg_mean, seg_mean],
+                mode="lines",
+                line=dict(color="black", width=2),
+                name="Segment mean",
+                showlegend=(i == 0),
+            )
         )
 
         if end_idx < len(y) - 1:
-            ax.axvline(
+            fig.add_vline(
                 x=date_end,
-                color="r",
-                linestyle="--",
-                alpha=0.5,
-                label="Detected changepoints",
+                line=dict(color="red", dash="dash", width=1),
+                opacity=0.5,
             )
+            has_changepoints = True
 
-    if loss == "l2":
-        ax.set_title(f"{name} - {loss} loss\nbeta = {round(beta * scaling, 1)}")
-    else:
-        K = compute_loss_bound_K(y=y, loss=loss)
-        ax.set_title(
-            f"{name} - {loss} loss\nK = {round(K, 1)} | beta = {round(beta * scaling, 1)}"
+    if has_changepoints:
+        fig.add_trace(
+            go.Scatter(
+                x=[None],
+                y=[None],
+                mode="lines",
+                line=dict(color="red", dash="dash", width=1),
+                name="Detected changepoints",
+            )
         )
 
-    handles, labels = ax.get_legend_handles_labels()
-    by_label = dict(zip(labels, handles))
-    ax.legend(by_label.values(), by_label.keys())
+    if loss == "l2":
+        title = f"{name} — {loss} loss | beta = {round(beta * scaling, 1)}"
+    else:
+        K = compute_loss_bound_K(y=y, loss=loss)
+        title = f"{name} — {loss} loss | K = {round(K, 1)} | beta = {round(beta * scaling, 1)}"
 
-    plt.tight_layout()
+    fig.update_layout(
+        title=title,
+        xaxis_title="Index",
+        yaxis_title=name,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+
     return fig
 
 
@@ -133,7 +152,7 @@ def plot_sensitivity_to_beta(
         50000,
     ],
     progress_bar: Any = None,
-) -> Figure:
+) -> go.Figure:
     """Plot number of detected changepoints as a function of beta scaling for a specific loss.
 
     Parameters
@@ -169,8 +188,7 @@ def plot_sensitivity_to_beta(
         nb_changepoints.append(len(set(cp_tau)))
 
         if progress_bar is not None:
-            progress_percentage = int(((idx + 1) / total_steps) * 100)
-            progress_percentage = max(0, min(100, progress_percentage))
+            progress_percentage = max(0, min(100, int(((idx + 1) / total_steps) * 100)))
             progress_bar.progress(progress_percentage)
 
     duration_ms = round((time.perf_counter() - t0) * 1000)
@@ -185,15 +203,21 @@ def plot_sensitivity_to_beta(
         },
     )
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=scaling_list,
+            y=nb_changepoints,
+            mode="lines+markers",
+            marker=dict(size=6),
+            line=dict(color="steelblue"),
+            name="Changepoints",
+        )
+    )
+    fig.update_layout(
+        title=f"{name} — {loss} loss: Sensitivity to beta",
+        xaxis=dict(type="log", title="Beta scaling factor (logscale)"),
+        yaxis=dict(type="log", title="Number of detected changepoints (logscale)"),
+    )
 
-    ax.plot(scaling_list, nb_changepoints, marker="o", linestyle="-", markersize=4)
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    ax.set_xlabel("Beta scaling factor (logscale)")
-    ax.set_ylabel("Number of detected changepoints (logscale)")
-    ax.set_title(f"{name} - {loss} loss: Sensitivity to beta")
-    ax.grid(True, which="both", ls="--", alpha=0.5)
-
-    plt.tight_layout()
     return fig

@@ -15,16 +15,16 @@ def test_gamma_builder_biweight():
     y, K = 5.0, 2.0
     pieces = gamma_builder_biweight(y=y, K=K, tau_for_new=1)
     assert len(pieces) == 3
-    assert pieces[0][2] == 0.0 and pieces[0][4] == K**2  # left: constant K²
-    assert pieces[1][2] == 1.0 and pieces[1][3] == -2.0 * y  # central: quadratic
-    assert pieces[2][2] == 0.0 and pieces[2][4] == K**2  # right: constant K²
-    assert pieces[0][1] == y - K and pieces[1][1] == y + K  # interval boundaries
+    assert pieces[0][2] == 0.0 and pieces[0][4] == K**2
+    assert pieces[1][2] == 1.0 and pieces[1][3] == -2.0 * y
+    assert pieces[2][2] == 0.0 and pieces[2][4] == K**2
+    assert pieces[0][1] == y - K and pieces[1][1] == y + K
 
 
 def test_gamma_builder_huber():
     y, K = 2.0, 1.0
     pieces = gamma_builder_huber(y=y, K=K, tau_for_new=0)
     assert len(pieces) == 3
-    assert pieces[0][2] == 0.0  # left flank: linear (A=0)
-    assert pieces[1][2] == 1.0  # central: quadratic (A=1)
-    assert pieces[2][2] == 0.0  # right flank: linear (A=0)
+    assert pieces[0][2] == 0.0
+    assert pieces[1][2] == 1.0
+    assert pieces[2][2] == 0.0
