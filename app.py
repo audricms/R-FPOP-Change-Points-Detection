@@ -6,8 +6,20 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from src.logger import get_logger
-from src.utils import list_s3_csv_files, natural_key, read_csv_from_s3
-from src.variables import DATA_DIR, S3_ENDPOINT_URL, VALID_LOSSES
+from src.utils import (
+    detect_datetime_candidates,
+    list_s3_csv_files,
+    natural_key,
+    read_csv_from_s3,
+    set_datetime_index,
+)
+from src.variables import (
+    DATA_DIR,
+    MAX_MISSING_RATIO,
+    MIN_SERIES_LENGTH,
+    S3_ENDPOINT_URL,
+    VALID_LOSSES,
+)
 from src.visualization import plot_segments, plot_sensitivity_to_beta
 
 load_dotenv()
@@ -78,6 +90,7 @@ if data_source == "Upload a time series":
     )
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
+
         logger.info(
             "dataset_loaded",
             extra={"source": "upload", "dataset_filename": uploaded_file.name},
@@ -166,6 +179,31 @@ if df is not None:
     col_name = st.selectbox(
         "Select a feature to analyze", numerical_columns, on_change=reset_state
     )
+
+    datetime_candidates = detect_datetime_candidates(df)
+    if datetime_candidates:
+        time_col = st.selectbox(
+            "Datetime column(s) detected. Select one to use as time axis",
+            options=["No, I want to use the index"] + datetime_candidates,
+        )
+        if time_col != "No, I want to use the index":
+            df = set_datetime_index(df, time_col)
+
+    col_series = df[col_name]
+    missing_ratio = col_series.isna().mean()
+    valid_count = col_series.notna().sum()
+
+    if valid_count < MIN_SERIES_LENGTH:
+        st.error(
+            f"The selected column has only {valid_count} non-missing values. "
+            f"At least {MIN_SERIES_LENGTH} are required."
+        )
+        st.stop()
+    if missing_ratio > MAX_MISSING_RATIO:
+        st.warning(
+            f"The selected column has {missing_ratio:.0%} missing values. "
+            "Results may be unreliable."
+        )
 
     col1, col2 = st.columns(2)
     with col1:
