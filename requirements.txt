@@ -1,9 +1,12 @@
 black==25.1.0
+boto3==1.42.91
 matplotlib==3.10.1
 numpy==2.2.4
 pandas==2.2.3
-pylint>=3.0.0
+pylint==4.0.5
 pytest==8.3.5
+python-dotenv==0.1.0
+python-json-logger==4.1.0
 ruff==0.11.2
 scipy==1.15.2
 statsmodels==0.14.4

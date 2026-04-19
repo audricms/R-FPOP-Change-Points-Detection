@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -5,6 +6,7 @@ import numpy as np
 import pandas as pd
 from matplotlib.figure import Figure
 
+from src.logger import get_logger
 from src.model_selection import (
     compute_loss_bound_K,
     compute_penalty_beta,
@@ -12,6 +14,8 @@ from src.model_selection import (
 )
 from src.rfpop_algorithms import rfpop_algorithm
 from src.variables import VALID_LOSSES
+
+logger = get_logger(__name__)
 
 
 def plot_segments(
@@ -38,10 +42,25 @@ def plot_segments(
     fig, ax = plt.subplots(figsize=(10, 5))
 
     beta = compute_penalty_beta(y=y, loss=loss)
+    t0 = time.perf_counter()
     cp_tau, _, _ = rfpop_algorithm(
         y=y,
         gamma_builder=get_gamma_builder(y=y, loss=loss),
         beta=beta * scaling,
+    )
+    duration_ms = round((time.perf_counter() - t0) * 1000)
+    n_changepoints = len(set(cp_tau)) - 1
+    logger.info(
+        "algorithm_run",
+        extra={
+            "function": "plot_segments",
+            "loss": loss,
+            "n_points": len(y),
+            "scaling": scaling,
+            "beta": round(float(beta * scaling), 6),
+            "n_changepoints": n_changepoints,
+            "duration_ms": duration_ms,
+        },
     )
 
     ax.plot(y, ".", markersize=2)
@@ -140,6 +159,7 @@ def plot_sensitivity_to_beta(
     nb_changepoints = []
     total_steps = len(list_scaling)
 
+    t0 = time.perf_counter()
     for idx, scaling in enumerate(list_scaling):
         cp_tau, _, _ = rfpop_algorithm(
             y=y,
@@ -148,12 +168,22 @@ def plot_sensitivity_to_beta(
         )
         nb_changepoints.append(len(set(cp_tau)))
 
-        # Mise à jour conditionnelle de la barre de progression Streamlit
         if progress_bar is not None:
             progress_percentage = int(((idx + 1) / total_steps) * 100)
-            # Streamlit requiert un entier entre 0 et 100
             progress_percentage = max(0, min(100, progress_percentage))
             progress_bar.progress(progress_percentage)
+
+    duration_ms = round((time.perf_counter() - t0) * 1000)
+    logger.info(
+        "sensitivity_run",
+        extra={
+            "function": "plot_sensitivity_to_beta",
+            "loss": loss,
+            "n_points": len(y),
+            "n_scaling_steps": total_steps,
+            "duration_ms": duration_ms,
+        },
+    )
 
     fig, ax = plt.subplots(figsize=(8, 5))
 

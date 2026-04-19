@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+namespace: user-vgraillat
+
+patches:
+  - target:
+      kind: Ingress
+      name: rfpop-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: rfpop-vgraillat.user.lab.sspcloud.fr
+      - op: replace
+        path: /spec/tls/0/hosts/0
+        value: rfpop-vgraillat.user.lab.sspcloud.fr

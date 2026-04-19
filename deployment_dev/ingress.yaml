@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rfpop-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/websocket-services: "rfpop-service"
+spec:
+  ingressClassName: onyxia
+  tls:
+    - hosts:
+        - REPLACE_ME_WITH_KUSTOMIZE
+  rules:
+    - host: REPLACE_ME_WITH_KUSTOMIZE
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rfpop-service
+                port:
+                  number: 80

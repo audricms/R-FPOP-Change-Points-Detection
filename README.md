@@ -18,6 +18,7 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - Toy datasets located in `data/`
 - Docker image support for both local execution and cloud deployment
 - CI/CD pipelines via GitHub Actions (linting, tests, Docker Hub build & push)
+- Kubernetes manifests for dev testing in `deployment_dev/`
 - GitOps-based deployment via a dedicated [application-deployment](https://github.com/vincentgraillat/application-deployment) repository and ArgoCD
 
 ## Repository Layout
@@ -26,9 +27,10 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - `src/`: Core algorithm, loss functions, model selection, and visualization
 - `data/`: Built-in CSV examples used by the app
 - `.github/workflows/`: CI/CD pipelines
+- `deployment_dev/`: Kubernetes Deployment, Service, Ingress, and Kustomization manifests
 ---
 
-## Quick Start For Developers
+## For Developers
 
 ### Prerequisites
 
@@ -52,6 +54,17 @@ Pre-commit automatically formats your code before each commit, ensuring that all
 - Install Pre-commit: `pip install pre-commit`
 - Set up Pre-commit in your project: `pre-commit install`
 Once installed, Pre-commit will automatically run the defined checks and formatting before each commit.
+
+#### Environment Variables
+
+Create a `.env` file at the project root with the following variable:
+
+```
+S3_BUCKET="asicard"
+S3_PREFIX="MPPDS - Projet"
+```
+
+This URL points to the public S3 bucket used to load toy datasets. The app will fall back to local files in `data/` if this variable is not set or the remote is unreachable.
 
 ### Run The App Locally
 
@@ -82,7 +95,41 @@ Image tagging is handled automatically by `docker/metadata-action`. You never ne
 
 ---
 
-## Deployment (GitOps via ArgoCD)
+## Run On Kubernetes (SSPCloud)
+
+While developing, you can test your code in the cloud using Kubernetes. We use Kustomize so you can easily deploy the app to your personal Kubernetes namespace without altering the core deployment files.
+
+### Configure Your Environment
+
+Before deploying, open the `deployment_dev/kustomization.yaml` file and update it with your personal SSPCloud username:
+1. Change `namespace: user-vgraillat` to your active namespace.
+2. Update the two Ingress URL hostnames under the `patches:` section to ensure they match your personal URLs.
+
+### Deploy
+
+Once configured, deploy the application using the `-k` (Kustomize) flag:
+```bash
+kubectl apply -k deployment_dev/
+```
+
+### Monitor
+
+Check the status of your pods and view logs:
+```bash
+kubectl get pods -l app=rfpop-app
+kubectl logs -l app=rfpop-app -f --tail=200
+```
+
+### Clean Up
+
+To remove the application from your cluster:
+```bash
+kubectl delete -k deployment_dev/
+```
+
+---
+
+## Production Deployment (GitOps via ArgoCD)
 
 Kubernetes deployment is managed by a separate, dedicated repository following GitOps principles: **[application-deployment](https://github.com/vincentgraillat/application-deployment)**.
 
@@ -119,9 +166,10 @@ The default remote base URL is configured as:
 `https://minio.lab.sspcloud.fr/asicard/MPPDS%20-%20Projet`
 
 You can override this remote base URL by setting the following environment variable in your deployment configuration:
-- `PUBLIC_DATA_URL`
+- `S3_DATA_URL`
 
 ---
 
 ## Streamlit app
+
 The application is reachable at: `https://rfpop-vgraillat.user.lab.sspcloud.fr`
