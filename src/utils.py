@@ -47,7 +47,7 @@ def natural_key(s: str) -> list[int | str]:
     """
     parts = re.split(r"(\d+)", s)
     return [
-        int(p) if p.isdigit() else p.lower().replace("_", "").strip() for p in parts
+        int(p) if p.isdigit() else p.lower().replace("_", " ").strip() for p in parts
     ]
 
 
