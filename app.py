@@ -42,13 +42,13 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
     * **Robustness threshold ($K$):** This parameter is specific to the Huber and Biweight losses. It defines the boundary beyond which an observation is classified as an outlier. By capping the influence of values exceeding $K$, the algorithm won't detect isolated outliers as false changepoints.
 
     **3. Parameter selection:**
-    * **Schwarz Information Criteria (SIC):** The automated statistical method proposed in the paper, used to penalize the addition of new changepoints and avoid overfitting. However, this method has limitations as the algorithm is highly sensitive to the choice of $\beta$. In some cases, the order of magnitude of $\beta$ suggested by this method is inappropriate and the algorithm will detect either very few changepoints or too many changepoints. In such cases, we propose an alternative method based on the elbow heuristic.
-    * **Elbow Method (if no satisfying results with SIC):** A visual heuristic. It plots the number of detected changepoints against the order of magnitude of $\beta$. The optimal order of magnitude is typically located a bit before the "elbow" of the curve, where the drop in the number of changepoints stabilizes. Using the elbow plot, we can iteratively test various orders of magnitude for $\beta$ and see which order of magnitude yield a number of changepoints that suits our needs. For a given order of magnitude $\gamma$ that we choose, the values of $(K,\beta)$ used by the model will be $(K^{SIC},\gamma \times \beta^{SIC})$, where $K^{SIC}, \beta^{SIC}$ are the parameters chosen by the SIC method.
+    * **Schwarz Information Criteria (SIC):** The automated statistical method proposed in the paper, used to penalize the addition of new changepoints and avoid overfitting. The algorithm always runs with a scaling multiplier $\gamma$ applied to $\beta^{SIC}$: by default $\gamma = 1$ (pure SIC). However, in some cases the order of magnitude suggested by SIC is inappropriate and the algorithm detects too few or too many changepoints.
+    * **Elbow plot (optional helper):** If the default SIC result is not satisfying, you can generate an elbow plot — a visual heuristic that shows the number of detected changepoints against the order of magnitude of $\beta$. The optimal order of magnitude is typically located just before the "elbow" of the curve, where the drop in changepoints stabilizes. Once you have identified a good order of magnitude $\gamma$ from the plot, enter it as the scaling multiplier and re-run the algorithm. The values of $(K,\beta)$ used will then be $(K^{SIC},\gamma \times \beta^{SIC})$, where $K^{SIC}, \beta^{SIC}$ are the parameters chosen by SIC.
 
     **4. About the success and failure of the algorithm:**
     * Detecting changepoints in time series with outliers is a very difficult task, and in some cases, even this algorithm fails to solve the problem and produces oversegmentation (detecting too many changepoints) or undersegmentation (detecting too few changepoints).
     * As explained above, the RFPOP algorithm is highly sensitive to the choice of parameters: the goal of this application is to allow the user to experiment with these different parameters to see their impact on the detected changepoints.
-    * We have included a set of time series in the application that illustrate this: on some series, the algorithm works well; on others, it performs very poorly. For series 2 and 4, the algorithm works well with parameters chosen by SIC, but for series 1 and 3, the results are more or less satisfactory with SIC depending on the loss function, and in some cases the elbow method must be used to obtain better results.
+    * We have included a set of pre-configured time series that illustrate this: on some series, the algorithm works well; on others, it performs very poorly. For series 2 and 4, the algorithm works well with parameters chosen by SIC, but for series 1 and 3, the results are more or less satisfactory with SIC depending on the loss function, and in some cases the elbow method must be used to obtain better results.
     """
     )
 
@@ -60,13 +60,9 @@ S3_BUCKET = os.getenv("S3_BUCKET", None)
 S3_PREFIX = os.getenv("S3_PREFIX", "")
 
 
-internal_files = []
-if os.path.exists(DATA_DIR):
-    internal_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
-
 data_source = st.radio(
-    "Source of data",
-    ["Upload a time series", "Use a time series from the application (toy examples)"],
+    "Data",
+    ["Upload a time series", "Use one of the pre-configured time series"],
     horizontal=True,
 )
 
@@ -93,12 +89,15 @@ else:
             "s3_listing_failed",
             extra={"error": str(list_error), "fallback": "local"},
         )
+        internal_files = []
+        if os.path.exists(DATA_DIR):
+            internal_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
         toy_files = sorted(internal_files, key=natural_key)
 
     if not toy_files:
-        st.warning("No toy CSV file is configured.")
+        st.warning("No CSV file found.")
     else:
-        selected_filename = st.selectbox("Choose a toy dataset", toy_files)
+        selected_filename = st.selectbox("Choose a dataset", toy_files)
         s3_key = (
             f"{S3_PREFIX.rstrip('/')}/{selected_filename}"
             if S3_PREFIX
@@ -119,7 +118,7 @@ else:
                     "duration_ms": duration_ms,
                 },
             )
-            st.caption("Toy dataset loaded from public S3.")
+            st.caption("Dataset loaded from public S3.")
         except Exception as s3_error:
             local_file_path = os.path.join(DATA_DIR, selected_filename)
             if os.path.exists(local_file_path):
@@ -133,7 +132,7 @@ else:
                     },
                 )
                 st.warning(
-                    "Could not read toy dataset from public S3. Falling back to local file. "
+                    "Could not read dataset from S3. Falling back to local file. "
                     f"Reason: {s3_error}"
                 )
             else:
@@ -144,7 +143,7 @@ else:
                         "error": str(s3_error),
                     },
                 )
-                st.error(f"Could not load dataset from public S3: {s3_error}")
+                st.error(f"Could not load dataset from S3: {s3_error}")
                 st.stop()
 
 
@@ -167,52 +166,27 @@ if df is not None:
     col1, col2 = st.columns(2)
     with col1:
         loss_choices = sorted(VALID_LOSSES)
-        loss = st.selectbox("Loss", loss_choices, on_change=reset_state)
+        loss = st.selectbox(
+            "Choose the loss function", loss_choices, on_change=reset_state
+        )
     with col2:
-        method_choices = sorted(
-            [
-                "Schwarz Information Criteria",
-                "Elbow Method (recommended if no satisfying results with the SIC method)",
-            ]
-        )
-        method = st.selectbox(
-            "Parameter selection method", method_choices, on_change=reset_state
+        chosen_scaling = st.number_input(
+            "Scaling multiplier for β (1.0 = pure SIC)",
+            min_value=0.001,
+            value=1.0,
+            format="%f",
         )
 
-    st.markdown("---")
-
-    if method == "Schwarz Information Criteria":
-        if st.button("Start computation (Schwarz Information Criteria)"):
-            progress_text = (
-                "Running the RFPOP algorithm with Schwarz Information Criteria..."
-            )
-            bar = st.progress(0, text=progress_text)
-
-            try:
-                bar.progress(50, text="Running the algorithm...")
-                fig = plot_segments(df, name=col_name, loss=loss, scaling=1.0)
-                bar.progress(100, text="End.")
-                st.plotly_chart(fig, use_container_width=True)
-            except Exception as e:
-                logger.error(
-                    "algorithm_error",
-                    extra={"method": "sic", "loss": loss, "error": str(e)},
-                )
-                st.error(f"Error when running the algorithm : {e}")
-            finally:
-                bar.empty()
-
-    elif (
-        method
-        == "Elbow Method (recommended if no satisfying results with the SIC method)"
+    with st.expander(
+        "Optional: generate the elbow plot to help choose the scaling multiplier"
     ):
         if st.button("Generate the elbow plot") or st.session_state.get(
             "elbow_done", False
         ):
             if "elbow_fig" not in st.session_state:
-                progress_text = "Computing results for the grid of parameters..."
-                bar = st.progress(0, text=progress_text)
-
+                bar = st.progress(
+                    0, text="Computing results for the grid of parameters..."
+                )
                 try:
                     fig_elbow = plot_sensitivity_to_beta(
                         df, name=col_name, loss=loss, progress_bar=bar
@@ -224,46 +198,25 @@ if df is not None:
                         "algorithm_error",
                         extra={"method": "elbow", "loss": loss, "error": str(e)},
                     )
-                    st.error(f"Error when generating the elbow plot : {e}")
+                    st.error(f"Error when generating the elbow plot: {e}")
                     st.stop()
                 finally:
                     bar.empty()
 
             st.plotly_chart(st.session_state.elbow_fig, use_container_width=True)
 
-            st.markdown("### Manually choose the order of magnitude of beta")
-            chosen_scaling = st.number_input(
-                "Choose the beta order of magnitude that you want from the elbow method plot:",
-                min_value=0.001,
-                value=1.0,
-                format="%f",
+    if st.button("Start computation"):
+        bar = st.progress(0, text="Running the RFPOP algorithm...")
+        try:
+            bar.progress(50, text="Running the algorithm...")
+            fig = plot_segments(df, name=col_name, loss=loss, scaling=chosen_scaling)
+            bar.progress(100, text="Done.")
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            logger.error(
+                "algorithm_error",
+                extra={"loss": loss, "scaling": chosen_scaling, "error": str(e)},
             )
-
-            if st.button(
-                "Run the RFPOP algorithm with manually chosen beta order of magnitude"
-            ):
-                progress_text = (
-                    f"Running the algorithm for order of magnitude={chosen_scaling}..."
-                )
-                bar_final = st.progress(0, text=progress_text)
-
-                try:
-                    bar_final.progress(50, text="Running the RFPOP algorithm...")
-                    fig_final = plot_segments(
-                        df, name=col_name, loss=loss, scaling=chosen_scaling
-                    )
-                    bar_final.progress(100, text="End")
-                    st.plotly_chart(fig_final, use_container_width=True)
-                except Exception as e:
-                    logger.error(
-                        "algorithm_error",
-                        extra={
-                            "method": "elbow_manual",
-                            "loss": loss,
-                            "scaling": chosen_scaling,
-                            "error": str(e),
-                        },
-                    )
-                    st.error(f"Error : {e}")
-                finally:
-                    bar_final.empty()
+            st.error(f"Error when running the algorithm: {e}")
+        finally:
+            bar.empty()
