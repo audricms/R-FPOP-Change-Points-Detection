@@ -11,3 +11,4 @@ HUBER_K_STD: float = 1.345
 VALID_LOSSES: list[str] = ["huber", "biweight", "l2"]
 
 DATA_DIR: str = "data"
+S3_ENDPOINT_URL: str = "https://minio.lab.sspcloud.fr"

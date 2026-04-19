@@ -6,13 +6,8 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from src.logger import get_logger
-from src.utils import (
-    build_public_toy_csv_url,
-    list_s3_csv_files,
-    natural_key,
-    read_csv_from_public_url,
-)
-from src.variables import DATA_DIR, VALID_LOSSES
+from src.utils import list_s3_csv_files, natural_key, read_csv_from_s3
+from src.variables import DATA_DIR, S3_ENDPOINT_URL, VALID_LOSSES
 from src.visualization import plot_segments, plot_sensitivity_to_beta
 
 load_dotenv()
@@ -61,7 +56,8 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
 st.markdown("---")
 
 
-S3_DATA_URL = os.getenv("S3_DATA_URL")
+S3_BUCKET = os.getenv("S3_BUCKET", None)
+S3_PREFIX = os.getenv("S3_PREFIX", "")
 
 
 internal_files = []
@@ -90,7 +86,9 @@ else:
         toy_files = sorted(internal_files, key=natural_key)
     else:
         try:
-            toy_files = list_s3_csv_files(S3_DATA_URL)
+            toy_files = list_s3_csv_files(
+                bucket=S3_BUCKET, prefix=S3_PREFIX, endpoint_url=S3_ENDPOINT_URL
+            )
         except Exception:
             toy_files = []
 
@@ -98,13 +96,13 @@ else:
         st.warning("No toy CSV file is configured.")
     else:
         selected_filename = st.selectbox("Choose a toy dataset", toy_files)
-        public_csv_url = build_public_toy_csv_url(
-            base_url=S3_DATA_URL, filename=selected_filename
-        )
+        s3_key = f"{S3_PREFIX}{selected_filename}"
 
         try:
             t0 = time.perf_counter()
-            df = read_csv_from_public_url(public_csv_url)
+            df = read_csv_from_s3(
+                bucket=S3_BUCKET, key=s3_key, endpoint_url=S3_ENDPOINT_URL
+            )
             duration_ms = round((time.perf_counter() - t0) * 1000)
             logger.info(
                 "dataset_loaded",

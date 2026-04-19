@@ -28,8 +28,10 @@ spec:
               cpu: "500m"
               memory: "1Gi"
           env:
-            - name: PUBLIC_DATA_URL
-              value: "https://minio.lab.sspcloud.fr/asicard/MPPDS%20-%20Projet"
+            - name: S3_BUCKET
+              value: "asicard"
+            - name: S3_PREFIX
+              value: "MPPDS - Projet"
           readinessProbe:
             httpGet:
               path: /_stcore/health

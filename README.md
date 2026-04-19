@@ -60,7 +60,8 @@ Once installed, Pre-commit will automatically run the defined checks and formatt
 Create a `.env` file at the project root with the following variable:
 
 ```
-S3_DATA_URL="https://minio.lab.sspcloud.fr/asicard/MPPDS - Projet"
+S3_BUCKET="asicard"
+S3_PREFIX="MPPDS - Projet"
 ```
 
 This URL points to the public S3 bucket used to load toy datasets. The app will fall back to local files in `data/` if this variable is not set or the remote is unreachable.
