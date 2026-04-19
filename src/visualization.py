@@ -118,10 +118,10 @@ def plot_segments(
         )
 
     if loss == "l2":
-        title = f"{name.capitalize()} — {loss.capitalize()} loss | β = {round(beta * scaling, 1)}"
+        title = f"Detected changepoints for {name.capitalize()} with {loss.capitalize()} loss | β = {round(beta * scaling, 1)}"
     else:
         K = compute_loss_bound_K(y=y, loss=loss)
-        title = f"{name.capitalize()} — {loss.capitalize()} loss | K = {round(K, 1)} | β = {round(beta * scaling, 1)}"
+        title = f"Detected changepoints for {name.capitalize()} with {loss.capitalize()} loss | K = {round(K, 1)} & β = {round(beta * scaling, 1)}"
 
     fig.update_layout(
         title=title,

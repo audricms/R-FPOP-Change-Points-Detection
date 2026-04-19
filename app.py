@@ -46,8 +46,8 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
     * Select the **feature** to analyze
     * Select a **loss function**
     * The algorithm always uses $\beta = \gamma \times \beta^{SIC}$ and $K = K^{SIC}$, where $\beta^{SIC}$ and $K^{SIC}$ are derived from the Schwarz Information Criteria. By default $\gamma = 1$, which corresponds to the pure SIC solution.
-    * If the result is not satisfying (too many or too few changepoints) you can adjust **$\gamma$** manually.
-    * **Elbow plot (optional helper):** To guide your choice of $\gamma$, you can generate an elbow plot showing the number of detected changepoints across a grid of $\gamma$ values. The optimal $\gamma$ is typically located just before the "elbow" of the curve, where the number of changepoints stabilizes. Once identified, enter that value as the scaling multiplier and re-run the algorithm.
+    * If the result is not satisfying (too many or too few changepoints), you can adjust the **scaling multiplier $\gamma$** manually.
+    * **Elbow plot (optional helper):** To guide your choice of $\gamma$, you can generate an elbow plot showing the number of detected changepoints across a grid of $\gamma$ values. The optimal $\gamma$ is typically located just before the "elbow" of the curve, where the number of changepoints stabilizes. Once identified, enter that value as the scaling multiplier and re-run the algorithm. It is automatically computed.
 
     **4. About the success and failure of the algorithm:**
     * Detecting changepoints in time series with outliers is a very difficult task, and in some cases, even this algorithm fails to solve the problem and produces oversegmentation (detecting too many changepoints) or undersegmentation (detecting too few changepoints).
