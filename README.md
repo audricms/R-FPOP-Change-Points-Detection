@@ -37,7 +37,7 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - Python 3.x
 - `pip`
 - Docker
-- `kubectl` with a configured cluster context (e.g., SSPCloud)
+- `kubectl` with a configured cluster context
 
 ### Local Setup
 
@@ -95,7 +95,7 @@ Image tagging is handled automatically by `docker/metadata-action`. You never ne
 
 ---
 
-## Run On Kubernetes (SSPCloud)
+## Run On Kubernetes
 
 While developing, you can test your code in the cloud using Kubernetes. We use Kustomize so you can easily deploy the app to your personal Kubernetes namespace without altering the core deployment files.
 

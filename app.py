@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from src.logger import get_logger
 from src.utils import (
     detect_datetime_candidates,
+    get_fs,
+    get_s3_credentials,
     list_s3_csv_files,
     natural_key,
     read_csv_from_s3,
@@ -72,6 +74,11 @@ with st.expander("ℹ️ Details about the RFPOP algorithm and parameters"):
 st.markdown("---")
 
 
+@st.cache_resource
+def get_cached_fs(key, secret, s3_endpoint_url):
+    return get_fs(key=key, secret=secret, s3_endpoint_url=s3_endpoint_url)
+
+
 S3_BUCKET = os.getenv("S3_BUCKET", None)
 S3_PREFIX = os.getenv("S3_PREFIX", "")
 
@@ -96,9 +103,12 @@ if data_source == "Upload a time series":
             extra={"source": "upload", "dataset_filename": uploaded_file.name},
         )
 else:
+    key, secret = get_s3_credentials()
+    fs = get_cached_fs(key=key, secret=secret, s3_endpoint_url=S3_ENDPOINT_URL)
+    use_local = False
     try:
         toy_files = list_s3_csv_files(
-            bucket=S3_BUCKET, prefix=S3_PREFIX, endpoint_url=S3_ENDPOINT_URL
+            bucket=S3_BUCKET, prefix=S3_PREFIX, endpoint_url=S3_ENDPOINT_URL, fs=fs
         )
         logger.info("s3_listing_succeeded", extra={"file_count": len(toy_files)})
     except Exception as list_error:
@@ -106,62 +116,75 @@ else:
             "s3_listing_failed",
             extra={"error": str(list_error), "fallback": "local"},
         )
+        use_local = True
         internal_files = []
         if os.path.exists(DATA_DIR):
             internal_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
         toy_files = sorted(internal_files, key=natural_key)
+        st.warning(
+            "Could not list files from S3. Falling back to local files. "
+            f"Reason: {list_error}"
+        )
 
     if not toy_files:
         st.warning("No CSV file found.")
     else:
         selected_filename = st.selectbox("Choose a dataset", toy_files)
-        s3_key = (
-            f"{S3_PREFIX.rstrip('/')}/{selected_filename}"
-            if S3_PREFIX
-            else selected_filename
-        )
 
-        try:
-            t0 = time.perf_counter()
-            df = read_csv_from_s3(
-                bucket=S3_BUCKET, key=s3_key, endpoint_url=S3_ENDPOINT_URL
-            )
-            duration_ms = round((time.perf_counter() - t0) * 1000)
-            logger.info(
-                "dataset_loaded",
-                extra={
-                    "source": "s3",
-                    "dataset_filename": selected_filename,
-                    "duration_ms": duration_ms,
-                },
-            )
-            st.caption("Dataset loaded from public S3.")
-        except Exception as s3_error:
+        if use_local:
             local_file_path = os.path.join(DATA_DIR, selected_filename)
             if os.path.exists(local_file_path):
                 df = pd.read_csv(local_file_path)
-                logger.warning(
-                    "s3_load_failed",
-                    extra={
-                        "dataset_filename": selected_filename,
-                        "error": str(s3_error),
-                        "fallback": "local",
-                    },
-                )
-                st.warning(
-                    "Could not read dataset from S3. Falling back to local file. "
-                    f"Reason: {s3_error}"
-                )
             else:
-                logger.error(
-                    "dataset_load_failed",
+                st.error(f"Local file not found: {selected_filename}")
+                st.stop()
+        else:
+            s3_key = (
+                f"{S3_PREFIX.rstrip('/')}/{selected_filename}"
+                if S3_PREFIX
+                else selected_filename
+            )
+            try:
+                t0 = time.perf_counter()
+                df = read_csv_from_s3(
+                    bucket=S3_BUCKET, key=s3_key, endpoint_url=S3_ENDPOINT_URL, fs=fs
+                )
+                duration_ms = round((time.perf_counter() - t0) * 1000)
+                logger.info(
+                    "dataset_loaded",
                     extra={
+                        "source": "s3",
                         "dataset_filename": selected_filename,
-                        "error": str(s3_error),
+                        "duration_ms": duration_ms,
                     },
                 )
-                st.error(f"Could not load dataset from S3: {s3_error}")
-                st.stop()
+                st.caption("Dataset loaded from public S3.")
+            except Exception as s3_error:
+                local_file_path = os.path.join(DATA_DIR, selected_filename)
+                if os.path.exists(local_file_path):
+                    df = pd.read_csv(local_file_path)
+                    logger.warning(
+                        "s3_load_failed",
+                        extra={
+                            "dataset_filename": selected_filename,
+                            "error": str(s3_error),
+                            "fallback": "local",
+                        },
+                    )
+                    st.warning(
+                        "Could not read dataset from S3. Falling back to local file. "
+                        f"Reason: {s3_error}"
+                    )
+                else:
+                    logger.error(
+                        "dataset_load_failed",
+                        extra={
+                            "dataset_filename": selected_filename,
+                            "error": str(s3_error),
+                        },
+                    )
+                    st.error(f"Could not load dataset from S3: {s3_error}")
+                    st.stop()
 
 
 if df is not None:

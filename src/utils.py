@@ -1,8 +1,15 @@
+import os
 import re
 from typing import NamedTuple
 
+import hvac
 import pandas as pd
 import s3fs
+
+from src.logger import get_logger
+from src.variables import VAULT_ENDPOINT_URL, VAULT_PATH
+
+logger = get_logger(__name__)
 
 
 class QuadPiece(NamedTuple):
@@ -51,12 +58,75 @@ def natural_key(s: str) -> list[int | str]:
     ]
 
 
-def get_fs(endpoint_url: str | None) -> s3fs.S3FileSystem:
-    return s3fs.S3FileSystem(anon=True, client_kwargs={"endpoint_url": endpoint_url})
+def get_s3_credentials(
+    vault_endpoint_url: str = VAULT_ENDPOINT_URL, vault_path: str = VAULT_PATH
+) -> dict[str | None, str | None]:
+    """Retrieve S3 credentials from Vault.
+
+    Authenticates using the VAULT_TOKEN environment variable and reads the
+    secret at the given path from the onyxia-kv mount point.
+
+    Parameters
+    ----------
+    vault_endpoint_url : str
+        URL of the Vault instance.
+    vault_path : str
+        Path to the secret containing AWS credentials.
+
+    Returns
+    -------
+    tuple[str | None, str | None]
+        AWS access key ID and secret access key, or (None, None) on failure.
+    """
+    try:
+        client = hvac.Client(url=vault_endpoint_url, token=os.getenv("VAULT_TOKEN"))
+
+        secret = client.secrets.kv.read_secret_version(
+            path=vault_path, mount_point="onyxia-kv"
+        )
+    except Exception as e:
+        logger.warning("vault_credentials_failed", extra={"error": str(e)})
+        return None, None
+
+    return secret["data"]["AWS_ACCESS_KEY_ID"], secret["data"]["AWS_SECRET_ACCESS_KEY"]
+
+
+def get_fs(
+    key: str | None, secret: str | None, s3_endpoint_url: str | None
+) -> s3fs.S3FileSystem:
+    """Build an S3FileSystem, authenticated if Vault credentials are available.
+
+    Falls back to anonymous access if credentials cannot be retrieved.
+
+    Parameters
+    ----------
+    key : str or None
+        AWS access key ID, or None if not available.
+    secret : str or None
+        AWS secret access key, or None if not available.
+    s3_endpoint_url : str or None
+        Custom S3 endpoint URL.
+
+    Returns
+    -------
+    s3fs.S3FileSystem
+    """
+    if key is None or secret is None:
+        return s3fs.S3FileSystem(
+            anon=True, client_kwargs={"endpoint_url": s3_endpoint_url}
+        )
+    return s3fs.S3FileSystem(
+        key=key,
+        secret=secret,
+        client_kwargs={"endpoint_url": s3_endpoint_url},
+    )
 
 
 def list_s3_csv_files(
-    bucket: str, prefix: str = "", endpoint_url: str | None = None
+    bucket: str,
+    prefix: str = "",
+    endpoint_url: str | None = None,
+    fs: s3fs.S3FileSystem | None = None,
 ) -> list[str]:
     """List CSV filenames available under an S3 prefix.
 
@@ -67,14 +137,17 @@ def list_s3_csv_files(
     prefix : str
         Key prefix to filter objects.
     endpoint_url : str, optional
-        Custom endpoint URL (e.g. for MinIO).
+        Custom endpoint URL.
+    fs : s3fs.S3FileSystem, optional
+        Pre-built filesystem instance. Built from endpoint_url if not provided.
 
     Returns
     -------
     list[str]
         Filenames sorted with natural ordering.
     """
-    fs = get_fs(endpoint_url)
+    if fs is None:
+        fs = get_fs(endpoint_url)
     path = f"{bucket}/{prefix.rstrip('/')}/" if prefix else bucket
     entries = fs.ls(path, detail=False)
     keys = [e.split("/")[-1] for e in entries if e.endswith(".csv")]
@@ -82,7 +155,10 @@ def list_s3_csv_files(
 
 
 def read_csv_from_s3(
-    bucket: str, key: str, endpoint_url: str | None = None
+    bucket: str,
+    key: str,
+    endpoint_url: str | None = None,
+    fs: s3fs.S3FileSystem | None = None,
 ) -> pd.DataFrame:
     """Read a CSV file from S3 into a DataFrame.
 
@@ -93,19 +169,38 @@ def read_csv_from_s3(
     key : str
         Full object key of the CSV file.
     endpoint_url : str, optional
-        Custom endpoint URL (e.g. for MinIO).
+        Custom endpoint URL.
+    fs : s3fs.S3FileSystem, optional
+        Pre-built filesystem instance. Built from endpoint_url if not provided.
 
     Returns
     -------
     pd.DataFrame
         Parsed contents of the CSV file.
     """
-    fs = get_fs(endpoint_url)
+    if fs is None:
+        fs = get_fs(endpoint_url)
     with fs.open(f"{bucket}/{key}") as f:
         return pd.read_csv(f)
 
 
 def detect_datetime_candidates(df: pd.DataFrame) -> list[str]:
+    """Return column names that are likely datetime columns.
+
+    A column is considered a candidate if it already has a datetime dtype, or
+    if more than 90% of its string values parse successfully as dates (trying
+    both day-first and month-first formats).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame to inspect.
+
+    Returns
+    -------
+    list[str]
+        Names of columns identified as datetime candidates.
+    """
     return [
         col
         for col in df.columns
@@ -122,6 +217,23 @@ def detect_datetime_candidates(df: pd.DataFrame) -> list[str]:
 
 
 def set_datetime_index(df: pd.DataFrame, time_col: str) -> pd.DataFrame:
+    """Set a column as a sorted datetime index.
+
+    Tries month-first parsing first, falls back to day-first if more than 10%
+    of values fail to parse.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame.
+    time_col : str
+        Name of the column to use as the index.
+
+    Returns
+    -------
+    pd.DataFrame
+        New DataFrame with ``time_col`` as a sorted DatetimeIndex.
+    """
     parsed = pd.to_datetime(df[time_col], errors="coerce", dayfirst=False)
     if parsed.isna().mean() > 0.1:
         parsed = pd.to_datetime(df[time_col], errors="coerce", dayfirst=True)
