@@ -5,11 +5,16 @@ from typing import NamedTuple
 import hvac
 import pandas as pd
 import s3fs
+from dotenv import load_dotenv
 
 from src.logger import get_logger
-from src.variables import VAULT_ENDPOINT_URL, VAULT_PATH
+from src.variables import VAULT_ENDPOINT_URL
+
+load_dotenv()
 
 logger = get_logger(__name__)
+
+VAULT_PATH = os.getenv("VAULT_PATH")
 
 
 class QuadPiece(NamedTuple):

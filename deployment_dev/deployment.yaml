@@ -32,6 +32,8 @@ spec:
               value: "asicard"
             - name: S3_PREFIX
               value: "MPPDS-Project"
+            - name: VAULT_PATH
+              value: "vgraillat/MPPDS"
           readinessProbe:
             httpGet:
               path: /_stcore/health
