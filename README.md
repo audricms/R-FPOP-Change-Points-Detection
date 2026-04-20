@@ -15,7 +15,7 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 
 - Robust changepoint detection algorithms implemented in Python (`src/`)
 - A Streamlit web application (`app.py`) to test the algorithm interactively
-- Toy datasets located in `data/`
+- Pre-congigured time series  located in `data/`
 - Docker image support for both local execution and cloud deployment
 - CI/CD pipelines via GitHub Actions (linting, tests, Docker Hub build & push)
 - Kubernetes manifests for dev testing in `deployment_dev/`
@@ -27,7 +27,8 @@ For more information about the course, visit: [ensae-reproductibilite.github.io]
 - `src/`: Core algorithm, loss functions, model selection, and visualization
 - `data/`: Built-in CSV examples used by the app
 - `.github/workflows/`: CI/CD pipelines
-- `deployment_dev/`: Kubernetes Deployment, Service, Ingress, and Kustomization manifests
+- `deployment_dev/`: Kubernetes Deployment, Service, Ingress, and Kustomization manifests for developing purposes
+
 ---
 
 ## For Developers
@@ -55,16 +56,23 @@ Pre-commit automatically formats your code before each commit, ensuring that all
 - Set up Pre-commit in your project: `pre-commit install`
 Once installed, Pre-commit will automatically run the defined checks and formatting before each commit.
 
+The following hooks are configured:
+- **isort**: sorts imports
+- **black**: code formatting
+- **flake8**: linting, including `flake8-print` to disallow `print` statements
+- **pylint**: enforces keyword-only arguments on function calls
+- **vulture**: detects dead code
+- Standard checks: trailing whitespace, end-of-file, YAML validity, debug statements, private key detection
+
 #### Environment Variables
 
-Create a `.env` file at the project root with the following variable:
+Create a `.env` file at the project root:
 
 ```
 S3_BUCKET="asicard"
 S3_PREFIX="MPPDS-Project"
+VAULT_PATH="vgraillat/MPPDS"
 ```
-
-This URL points to the public S3 bucket used to load toy datasets. The app will fall back to local files in `data/` if this variable is not set or the remote is unreachable.
 
 ### Run The App Locally
 
@@ -151,16 +159,16 @@ ArgoCD detects manifest drift → auto-syncs cluster → new image is live
 1. Push a tag to this repo: `git tag vX.Y.Z && git push origin vX.Y.Z`
 2. Wait for the GitHub Actions build to complete.
 3. Update the image tag in `application-deployment/deployment/deployment.yaml` to `vX.Y.Z` and merge to `main`.
-4. ArgoCD detects the change and rolls out the new image automatically.
+4. ArgoCD detects the change and rolls out the new image.
 
 ---
 
 ## Data Sources
 
-The application loads toy CSV datasets from two potential sources:
+The application loads pre-configured CSV datasets from two potential sources:
 
 1. **Local files** stored in the `data/` directory.
-2. **Public S3 Storage** (SSPCloud MinIO).
+2. **Public S3 Storage** through SSPCloud MinIO.
 
 ---
 
