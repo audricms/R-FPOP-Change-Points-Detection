@@ -75,8 +75,8 @@ st.markdown("---")
 
 
 @st.cache_resource
-def get_cached_fs(key, secret, s3_endpoint_url):
-    return get_fs(key=key, secret=secret, s3_endpoint_url=s3_endpoint_url)
+def get_cached_fs(key, secret, token, s3_endpoint_url):
+    return get_fs(key=key, secret=secret, token=token, s3_endpoint_url=s3_endpoint_url)
 
 
 S3_BUCKET = os.getenv("S3_BUCKET", None)
@@ -103,8 +103,10 @@ if data_source == "Upload a time series":
             extra={"source": "upload", "dataset_filename": uploaded_file.name},
         )
 else:
-    key, secret = get_s3_credentials()
-    fs = get_cached_fs(key=key, secret=secret, s3_endpoint_url=S3_ENDPOINT_URL)
+    key, secret, token = get_s3_credentials()
+    fs = get_cached_fs(
+        key=key, secret=secret, token=token, s3_endpoint_url=S3_ENDPOINT_URL
+    )
     use_local = False
     try:
         toy_files = list_s3_csv_files(

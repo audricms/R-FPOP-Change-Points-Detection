@@ -75,8 +75,8 @@ def get_s3_credentials(
 
     Returns
     -------
-    tuple[str | None, str | None]
-        AWS access key ID and secret access key, or (None, None) on failure.
+    tuple[str | None, str | None, str | None]
+        AWS access key ID, secret access key, and session token, or (None, None, None) on failure.
     """
     try:
         client = hvac.Client(url=vault_endpoint_url, token=os.getenv("VAULT_TOKEN"))
@@ -86,13 +86,21 @@ def get_s3_credentials(
         )
     except Exception as e:
         logger.warning("vault_credentials_failed", extra={"error": str(e)})
-        return None, None
+        return None, None, None
 
-    return secret["data"]["AWS_ACCESS_KEY_ID"], secret["data"]["AWS_SECRET_ACCESS_KEY"]
+    data = secret["data"]
+    return (
+        data.get("AWS_ACCESS_KEY_ID"),
+        data.get("AWS_SECRET_ACCESS_KEY"),
+        data.get("AWS_SESSION_TOKEN"),
+    )
 
 
 def get_fs(
-    key: str | None, secret: str | None, s3_endpoint_url: str | None
+    key: str | None,
+    secret: str | None,
+    s3_endpoint_url: str | None,
+    token: str | None = None,
 ) -> s3fs.S3FileSystem:
     """Build an S3FileSystem, authenticated if Vault credentials are available.
 
@@ -106,6 +114,8 @@ def get_fs(
         AWS secret access key, or None if not available.
     s3_endpoint_url : str or None
         Custom S3 endpoint URL.
+    token : str or None
+        AWS session token for temporary credentials, or None if not required.
 
     Returns
     -------
@@ -118,6 +128,7 @@ def get_fs(
     return s3fs.S3FileSystem(
         key=key,
         secret=secret,
+        token=token,
         client_kwargs={"endpoint_url": s3_endpoint_url},
     )
 
