@@ -29,3 +29,5 @@ MAX_MISSING_RATIO: float = 0.2
 
 DATA_DIR: str = "data"
 S3_ENDPOINT_URL: str = "https://minio.lab.sspcloud.fr"
+VAULT_ENDPOINT_URL: str = "https://vault.lab.sspcloud.fr"
+VAULT_PATH: str = "vgraillat/MPPDS"
