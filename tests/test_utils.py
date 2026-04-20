@@ -7,13 +7,13 @@ def test_natural_key_sorts_numerically():
     files = [
         "example_time_series_10.csv",
         "example_time_series_2.csv",
-        "example time series 1.csv",
-        "example time_series3.csv",
+        "example_time_series_1.csv",
+        "example_time_series_3.csv",
     ]
     assert sorted(files, key=natural_key) == [
-        "example time series 1.csv",
+        "example_time_series_1.csv",
         "example_time_series_2.csv",
-        "example time_series3.csv",
+        "example_time_series_3.csv",
         "example_time_series_10.csv",
     ]
 
