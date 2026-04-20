@@ -61,7 +61,7 @@ Create a `.env` file at the project root with the following variable:
 
 ```
 S3_BUCKET="asicard"
-S3_PREFIX="MPPDS - Projet"
+S3_PREFIX="MPPDS-Project"
 ```
 
 This URL points to the public S3 bucket used to load toy datasets. The app will fall back to local files in `data/` if this variable is not set or the remote is unreachable.
