@@ -91,13 +91,19 @@ def get_s3_credentials(
     return secret["data"]["AWS_ACCESS_KEY_ID"], secret["data"]["AWS_SECRET_ACCESS_KEY"]
 
 
-def get_fs(s3_endpoint_url: str | None) -> s3fs.S3FileSystem:
+def get_fs(
+    key: str | None, secret: str | None, s3_endpoint_url: str | None
+) -> s3fs.S3FileSystem:
     """Build an S3FileSystem, authenticated if Vault credentials are available.
 
     Falls back to anonymous access if credentials cannot be retrieved.
 
     Parameters
     ----------
+    key : str or None
+        AWS access key ID, or None if not available.
+    secret : str or None
+        AWS secret access key, or None if not available.
     s3_endpoint_url : str or None
         Custom S3 endpoint URL.
 
@@ -105,20 +111,22 @@ def get_fs(s3_endpoint_url: str | None) -> s3fs.S3FileSystem:
     -------
     s3fs.S3FileSystem
     """
-    aws_access_key_id, aws_secret_access_key = get_s3_credentials()
-    if aws_access_key_id is None or aws_secret_access_key is None:
+    if key is None or secret is None:
         return s3fs.S3FileSystem(
             anon=True, client_kwargs={"endpoint_url": s3_endpoint_url}
         )
     return s3fs.S3FileSystem(
-        key=aws_access_key_id,
-        secret=aws_secret_access_key,
+        key=key,
+        secret=secret,
         client_kwargs={"endpoint_url": s3_endpoint_url},
     )
 
 
 def list_s3_csv_files(
-    bucket: str, prefix: str = "", endpoint_url: str | None = None
+    bucket: str,
+    prefix: str = "",
+    endpoint_url: str | None = None,
+    fs: s3fs.S3FileSystem | None = None,
 ) -> list[str]:
     """List CSV filenames available under an S3 prefix.
 
@@ -130,13 +138,16 @@ def list_s3_csv_files(
         Key prefix to filter objects.
     endpoint_url : str, optional
         Custom endpoint URL.
+    fs : s3fs.S3FileSystem, optional
+        Pre-built filesystem instance. Built from endpoint_url if not provided.
 
     Returns
     -------
     list[str]
         Filenames sorted with natural ordering.
     """
-    fs = get_fs(endpoint_url)
+    if fs is None:
+        fs = get_fs(endpoint_url)
     path = f"{bucket}/{prefix.rstrip('/')}/" if prefix else bucket
     entries = fs.ls(path, detail=False)
     keys = [e.split("/")[-1] for e in entries if e.endswith(".csv")]
@@ -144,7 +155,10 @@ def list_s3_csv_files(
 
 
 def read_csv_from_s3(
-    bucket: str, key: str, endpoint_url: str | None = None
+    bucket: str,
+    key: str,
+    endpoint_url: str | None = None,
+    fs: s3fs.S3FileSystem | None = None,
 ) -> pd.DataFrame:
     """Read a CSV file from S3 into a DataFrame.
 
@@ -156,13 +170,16 @@ def read_csv_from_s3(
         Full object key of the CSV file.
     endpoint_url : str, optional
         Custom endpoint URL.
+    fs : s3fs.S3FileSystem, optional
+        Pre-built filesystem instance. Built from endpoint_url if not provided.
 
     Returns
     -------
     pd.DataFrame
         Parsed contents of the CSV file.
     """
-    fs = get_fs(endpoint_url)
+    if fs is None:
+        fs = get_fs(endpoint_url)
     with fs.open(f"{bucket}/{key}") as f:
         return pd.read_csv(f)
 
